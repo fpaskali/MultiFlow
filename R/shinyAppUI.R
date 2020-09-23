@@ -1,14 +1,12 @@
 #' Shiny app server object
 #'
 #' @title MultiFlow Extended
-#' @importFrom shinythemes shinytheme
 #' @importFrom shinyFiles shinyDirButton
 #' @import shiny
 
 ## required packages
 library(shiny)
 library(shinyjs)
-library(shinythemes)
 library(fs)
 library(shinyFiles)
 library(DT)
@@ -17,7 +15,6 @@ library(ggplot2)
 
 # create the shiny application user interface
 shinyAppUI <- fluidPage(
-  theme = shinytheme("sandstone"),
   shinyjs::useShinyjs(),
 
   titlePanel("MultiFlow Shiny App"),
