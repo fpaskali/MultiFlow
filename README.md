@@ -1,5 +1,5 @@
-# MultiFlow
-The repository includes the development version of R package MultiFlow
+# MultiFlowExtended
+A fork of MultiFlow introducing new thresholding methods
 
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
@@ -23,20 +23,20 @@ be installed automatically.
 ## Install package remotes
 if(!require(remotes)) install.packages("remotes")
 ## Install package MultiFlow
-remotes::install_github("stamats/MultiFlow", build_vignettes = TRUE)
+remotes::install_github("fpaskali/MultiFlowApp", build_vignettes = TRUE)
 ```
 
 ## Start App
 
 ```{r}
-MultiFlow::runMultiFlowApp()
+MultiFlowExt::launchApp()
 ```
 
 
 ## Open User's Guide
 
 ```{r}
-vignette("MultiFlow")
+vignette("MultiFlowExt")
 ```
 
 See also: [MultiFlow User's Guide](https://stamats.github.io/MultiFlow/MultiFlow.html).

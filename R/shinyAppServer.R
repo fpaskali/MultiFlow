@@ -1,11 +1,20 @@
-################################################################################
-## MultiFlow Shiny App
-################################################################################
+#' Shiny app server function
+#' @title MultiFlow Extended
+#' @param input provided by shiny
+#' @param output provided by shiny
+#' @importFrom EBImage imageData display otsu readImage
+#' @importFrom fs path_home dir_create
+#' @import shiny stats
+#' @importFrom shinyFiles shinyDirChoose
+#' @importFrom DT DTOutput renderDT datatable
+#' @importFrom rmarkdown render
+#' @importFrom ggplot2 ggplot geom_point geom_abline ylab annotate
+#' @importFrom shinyjs useShinyjs hidden hide show reset
+#'
 
 ## required packages
-library(shiny) 
-library(shinyjs) 
-library(shinythemes)
+library(shiny)
+library(shinyjs)
 library(EBImage)
 library(fs)
 library(shinyFiles)
@@ -13,329 +22,26 @@ library(DT)
 library(rmarkdown)
 library(ggplot2)
 
-### UI ###
-ui <- fluidPage( 
-  theme = shinytheme("sandstone"),
-  shinyjs::useShinyjs(),
-  
-  titlePanel("MultiFlow Shiny App"),
-  tags$style(type='text/css', "#stop { float:right; }"),
-  actionButton("stop", "Quit App"), 
-  tabsetPanel(id = "tabs", 
-              ## Start of Tab Image Editor
-              tabPanel("Cropping and Segmentation", value = "tab1",
-                       sidebarLayout(
-                         sidebarPanel(
-                           radioButtons("radio", 
-                                        label = ("1) Upload Image or Choose Sample"), 
-                                        choices = list("Upload Image" = 1, 
-                                                       "Sample Image" = 2), 
-                                        selected = 1),
-                           conditionalPanel(
-                             condition = "input.radio == 1",
-                             fileInput(inputId = 'file1',
-                                       label = 'Upload Image',
-                                       placeholder = 'JPEG, PNG, and TIFF are supported',
-                                       accept = c(
-                                         "image/jpeg",
-                                         "image/x-png",
-                                         "image/tiff",
-                                         ".jpg",
-                                         ".png",
-                                         ".tiff"))
-                           ),hr(style="border-color: black"),
-                           h5("2) Set number of strips and number of lines per strip",
-                              style="font-weight:bold"),
-                           sliderInput("strips", "Number of strips:", 
-                                       min = 1, max = 10, value = 1),
-                           sliderInput("bands", "Number of lines:", 
-                                       min = 2, max = 6, value = 2),
-                         ),
-                         mainPanel(
-                           HTML(
-                             paste(
-                               h3('Cropping and Segmentation', align = "center"),
-                               plotOutput("plot1",
-                                          click = "plot_click",
-                                          dblclick = "plot_dblclick",
-                                          hover = "plot_hover",
-                                          brush = "plot_brush"),
-                               '<br/>',
-                               column(6, shinyjs::hidden(
-                                 actionButton("segmentation", label = "4) Apply Segmentation")
-                               )),
-                               tags$style(type='text/css', "#segmentation { display: block; width:70%; margin-left: auto; margin-right:auto;}"),
-                               '<br/>','<br/>',
-                               h3('Preview Crop', align = "center"),
-                               h6('Click and drag where you would like to crop the photo. To keep the cropped version, press Apply Crop', align = "center"),
-                               '<br/>',
-                               plotOutput("plot2"),
-                               '<br/>',
-                               shinyjs::hidden(
-                                 actionButton("keep", label = "3) Apply Crop")
-                               ),
-                               tags$style(type='text/css', "#keep { display:block; width:30%; margin-left: auto; margin-right:auto;}"),
-                               '<br/>',
-                               verbatimTextOutput("info")
-                             )
-                           ),
-                           width = 8
-                         )
-                       )
-              ), # END OF TAB PANEL
-          ## Start of Tab Background Correction
-          tabPanel("Background", value = "tab2",
-                   sidebarLayout(
-                     sidebarPanel(
-                       numericInput(inputId = "selectStrip",
-                                    label = "1) Select strip:",
-                                    value = 1,
-                                    min = 1,
-                                    max = 1,
-                                    step = 1,
-                                    width = NULL
-                       ),
-                       hr(style="border-color: black"),
-                       h5("2) Select threshold method and apply",
-                          style="font-weight:bold"),
-                       radioButtons("colorImage", 
-                                    label = ("Color image?"), 
-                                    choices = list("No" = 1, 
-                                                   "Yes" = 2), 
-                                    selected = 1),
-                       conditionalPanel(
-                         condition = "input.colorImage == 2",
-                         radioButtons("channel", 
-                                      label = ("Conversion mode"), 
-                                      choices = list("luminance" = 1, 
-                                                     "gray" = 2,
-                                                     "red" = 3,
-                                                     "green" = 4,
-                                                     "blue" = 5), 
-                                      selected = 1)
-                       ),
-                       radioButtons("thresh", 
-                                    label = ("Threshold method"), 
-                                    choices = list("Otsu" = 1, 
-                                                   "Quantile" = 2), 
-                                    selected = 1),
-                       conditionalPanel(
-                         condition = "input.thresh == 2",
-                         numericInput(inputId = "quantile1",
-                                      label = "Probability [%]:",
-                                      value = 99,
-                                      min = 0,
-                                      max = 100,
-                                      step = 0.1,
-                                      width = NULL
-                         )
-                       ),
-                       actionButton("threshold", label = "2) Apply Threshold"), br(),
-                       hr(style="border-color: black"),
-                       h5("3) Add to Data and go back to 1) or proceed with 4)",
-                          style="font-weight:bold"),
-                       actionButton("data", label = "3) Add To Data"), br(),
-                       hr(style="border-color: black"),
-                       actionButton("showIntensData", label = "4) Switch To Intensity Data")
-                     ),
-                     mainPanel(
-                       HTML(
-                         paste(
-                           h3('Background Correction', align = "center"),
-                           verbatimTextOutput("thresh"),br(),
-                           h4('Signal Intensity Above Background', align = "center"),
-                           plotOutput("plot3"),
-                           h4('Lines After Background Subtraction', align = "center"),
-                           plotOutput("plot4"),
-                           verbatimTextOutput("meanIntens"),
-                           verbatimTextOutput("medianIntens"),
-                           '<br/>','<br/>'
-                         )
-                       ),
-                       width = 8
-                     )
-                   )
-          ), # END OF TAB PANEL
-          ## Start of Tab Data
-          tabPanel("Intensity Data", value = "tab3",
-            sidebarLayout(
-              sidebarPanel(
-                h5("You can also upload existing intensity data and go to 3)", style="font-weight:bold"),
-                fileInput("intensFile", "Select CSV file", 
-                          multiple = FALSE,
-                          accept = c("text/csv", 
-                                     "text/comma-separated-values,text/plain",
-                                     ".csv")), hr(style="border-color: black"),
-                h5("Download intensity data", style="font-weight:bold"),
-                actionButton("refreshData", label = "1) Refresh Data"), br(), br(),
-                downloadButton("downloadData", "2) Download Data"), br(),
-                hr(style="border-color: black"),
-                actionButton("expInfo", label = "3) Switch To Experiment Info"),
-                hr(style="border-color: black"),
-                h5("For restart with new data", style="font-weight:bold"),
-                actionButton("deleteData", label = "Delete Data"), br(), 
-              ),
-              mainPanel(
-                DTOutput("intens")
-              )
-            )
-          ), # END OF TAB PANEL
-          tabPanel("Experiment Info", value = "tab4",
-            sidebarLayout(
-              sidebarPanel(
-                h5("1) Upload experiment info or upload existing merged data and go to 5)", style="font-weight:bold"),
-                fileInput("expFile", "Select CSV file", 
-                          multiple = FALSE,
-                          accept = c("text/csv", 
-                                     "text/comma-separated-values,text/plain",
-                                     ".csv")),
-                # Input: Checkbox if file has header ----
-                checkboxInput("header", "Header", TRUE),
-                # Input: Select separator ----
-                radioButtons("sep", "Separator",
-                             choices = c(Comma = ",",
-                                         Semicolon = ";",
-                                         Tab = "\t"),
-                             selected = ","),
-                # Input: Select quotes ----
-                radioButtons("quote", "Quote",
-                             choices = c(None = "",
-                                         "Double Quote" = '"',
-                                         "Single Quote" = "'"),
-                             selected = '"'),  hr(style="border-color: black"),
-                h5("2) Select ID columns and merge datasets", style="font-weight:bold"),
-                textInput("mergeIntens", label = "ID Column Intensity Data", value = "File"),
-                textInput("mergeExp", label = "ID Column Experiment Info", value = "File"),
-                actionButton("merge", label = "2) Merge With Intensity Data"), br(),
-                hr(style="border-color: black"),
-                h5("Download merged data", style="font-weight:bold"),
-                actionButton("refreshData2", label = "3) Refresh Data"), br(), br(),
-                downloadButton("downloadData2", "4) Download Data"), br(), 
-                hr(style="border-color: black"),
-                actionButton("prepare", label = "5) Prepare Calibration"),
-                hr(style="border-color: black"),
-                h5("For restart with new data", style="font-weight:bold"),
-                actionButton("deleteData2", label = "Delete Data"), br(),
-              ),
-              mainPanel(
-                DTOutput("experiment")
-              )
-            )
-          ), # END OF TAB PANEL
-          tabPanel("Calibration", value = "tab5",
-                   sidebarLayout(
-                     sidebarPanel(
-                       h5("1) Select a folder for the analysis results", style="font-weight:bold"),
-                       shinyDirButton('folder', "1) Select Folder", "Please select a folder"),
-                       hr(style="border-color: black"),
-#                       h5("Optional: average technical replicates", style="font-weight:bold"),
-#                       hr(style="border-color: black"),
-#                       h5("Optional: reshape data from long to wide", style="font-weight:bold"),
-#                       hr(style="border-color: black"),
-                       h5("You can also upload existing data for calibration and got to 5)", style="font-weight:bold"),
-                       fileInput("prepFile", "Select CSV file", 
-                                 multiple = FALSE,
-                                 accept = c("text/csv", 
-                                            "text/comma-separated-values,text/plain",
-                                            ".csv")), 
-                       hr(style="border-color: black"),
-                       h5("Download calibration data", style="font-weight:bold"),
-                       actionButton("refreshData3", label = "3) Refresh Data"), br(), br(),
-                       downloadButton("downloadData3", "4) Download Data"),
-                       hr(style="border-color: black"),
-                       h5("5) Calibration by linear model", style="font-weight:bold"),
-                       radioButtons("radioPrepro", 
-                                    label = ("Further preprocessing steps:"), 
-                                    choices = list("None" = 1, 
-                                                   "Average technical replicates" = 2,
-                                                   "Reshape from long to wide" = 3), 
-                                    selected = 1), 
-                       conditionalPanel(
-                         condition = "input.radioPrepro == 2",
-                         hr(style="border-color: black"),
-                         textInput("combRepsColSI", label = "Column with sample information:", value = "Sample"),
-                         numericInput(inputId = "colorsBands",
-                                      label = "Number of analytes/colors per line:",
-                                      value = 1,
-                                      min = 1,
-                                      max = 5,
-                                      step = 1,
-                                      width = NULL
-                        ),
-                        conditionalPanel(
-                          condition = "input.colorsBands > 1",
-                          textInput("combRepsColCL", label = "Column with color information:", value = "Color"),
-                        ),
-                        radioButtons("radioReps", 
-                                     label = ("Choose measure for averaging:"), 
-                                     choices = list("Mean" = 1, 
-                                                    "Median" = 2), 
-                                     selected = 1), 
-                        actionButton("combReps", label = "Average Technical Replicates"),
-                        hr(style="border-color: black")
-                      ),
-                      conditionalPanel(
-                        hr(style="border-color: black"),
-                        condition = "input.radioPrepro == 3",
-                        textInput("reshapeCol", label = "Column:", value = "Color"),
-                        actionButton("reshapeWide", label = "Reshape"),
-                        hr(style="border-color: black")
-                      ),
-                      textAreaInput("formula", label = "Specify Full Model (R formula)"),
-                      textAreaInput("subset", label = "Optional: specify subset (logical R expression)"),
-                      actionButton("runCali", label = "5) Run Calibration Analysis"),
-                      hr(style="border-color: black"),
-                      h5("For restart with new data", style="font-weight:bold"),
-                      actionButton("deleteData3", label = "Delete Data"), br(),
-                     ),
-                     mainPanel(
-                       verbatimTextOutput("folder"),
-                       DTOutput("calibration")
-                     )
-                   )
-          ), # END OF TAB PANEL
-          tabPanel("Results", value = "tab6",
-                   sidebarLayout(
-                     sidebarPanel(
-                       h4("Open analysis report"),
-                       actionButton("openReport", label = "Open")
-                     ),
-                     mainPanel(
-                       h3("Results of Calibration Analysis", style="font-weight:bold"), br(),
-                       h4("Calibration model", style="font-weight:bold"),
-                       verbatimTextOutput("modelSummary"), br(),
-                       plotOutput("plot5"), br(),
-                       verbatimTextOutput("LOB"),
-                       verbatimTextOutput("LOD"),
-                       verbatimTextOutput("LOQ")
-                     )
-                   )
-                ) # END OF TAB PANEL
-  ) # END OF TAB SET PANEL
-) # END OF UI
-
-
-### SERVER ###
-server <- function(input, output, session) {
+shinyAppServer <- function(input, output, session) {
   options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
   shinyImageFile <- reactiveValues(shiny_img_origin = NULL, Threshold = NULL)
-  
+
   #checks radio for file input
   observe({
     #default: upload image
     if(input$radio == 1){
       reset('file1') #allows plot1 to be null when radio is clicked
-      # creates a warning to upload correct file 
+      # creates a warning to upload correct file
       # otherwise outputs image
-      output$plot1 <- renderPlot({ 
+      output$plot1 <- renderPlot({
         validate(need(!is.null(input$file1), "Must upload a valid jpg, png, or tiff"))
-        if(is.null(input$file1)) 
+        if(is.null(input$file1))
           return(NULL)
       })
     }
     if(input$radio == 2){
       # using sample image
-      img <- readImage(system.file("images", "sample.TIF", package="MultiFlow"))
+      img <- readImage(system.file("images", "sample.TIF", package="MultiFlowExt"))
       shinyImageFile$shiny_img_origin <- img
 
       shinyImageFile$filename <- "sample.TIF"
@@ -343,7 +49,7 @@ server <- function(input, output, session) {
       output$plot1 <- renderPlot({ display(img, method = "raster") })
     }
   }) # end of observe
-  
+
   observe({
     input$file1
     input$radio
@@ -351,21 +57,21 @@ server <- function(input, output, session) {
     # reset plot brush
     session$resetBrush("plot_brush")
   })
-  
+
   #the datapath is different from the one needed to properly recognize photo
-  #so this function renames the file 
+  #so this function renames the file
   renameUpload <- function(inFile){
     if(is.null(inFile))
       return(NULL)
-    
+
     oldNames <- inFile$datapath
     newNames <- file.path(dirname(inFile$datapath), inFile$name)
     file.rename(from = oldNames, to = newNames)
     inFile$datapath <- newNames
-    
+
     return(inFile$datapath)
   }
-  
+
   #if they enter a new file, their file will become the new imageFile
   observeEvent(input$file1, {
     # reseting plots and text messages
@@ -377,20 +83,20 @@ server <- function(input, output, session) {
       shinyImageFile$Mean_Intensities <- NULL
     if(!is.null(shinyImageFile$Median_Intensities))
       shinyImageFile$Median_Intensities <- NULL
-    
+
     shinyImageFile$filename <- input$file1$name
     img <- readImage(renameUpload(input$file1))
     shinyImageFile$shiny_img_origin <- img
     output$plot1 <- renderPlot({display(img, method = "raster")})
   })
-  
+
   #prompts shiny to look at recursive crop
   observe({recursiveCrop()})
-    
-  #only executes when keep is clicked 
+
+  #only executes when keep is clicked
   recursiveCrop <- eventReactive(input$keep,{
     isolate({
-      p <- input$plot_brush 
+      p <- input$plot_brush
       img <- shinyImageFile$shiny_img_origin
       if(length(dim(img)) == 2)
         shinyImageFile$shiny_img_origin <- img[p$xmin:p$xmax, p$ymin:p$ymax, drop = FALSE]
@@ -398,11 +104,11 @@ server <- function(input, output, session) {
         shinyImageFile$shiny_img_origin <- img[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
       output$plot1 <- renderPlot({
         display(shinyImageFile$shiny_img_origin, method = "raster")
-      
+
         MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
         colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
         rowcuts <- seq(1, MAX[2], length.out = 2*input$bands) # bands + spaces between bands
-        
+
         for (x in colcuts) {
           lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
         }
@@ -413,7 +119,7 @@ server <- function(input, output, session) {
     })
     session$resetBrush("plot_brush")
   })
-  
+
   #hides the keep button in the instance in which the user highlighted the plot
   #then clicks on the side so that the brush plot disappears
   #if user clicks keep without a valid brush, there will be errors
@@ -421,22 +127,22 @@ server <- function(input, output, session) {
   observeEvent(is.null(input$plot_brush), {
     shinyjs::hide("keep")
   })
-  
+
   #creates a clone of the image in the main image viewer
-  #shows the user a preview of the cropped image 
+  #shows the user a preview of the cropped image
   #since shinyimg saves every image that is edited, we use a clone
   #so that we aren't saving any of the previews
   #till the user clicks keep
   croppedShiny <- function(image){
     p <- input$plot_brush
     validate(need(p != 'NULL', "Highlight a portion of the photo to see a cropped version!"))
-    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1], 
+    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1],
                   "Highlighted portion is out of bounds on the x-axis of your image 1"))
-    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2], 
+    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2],
                   "Highlighted portion is out of bounds on the y-axis of your image 1"))
-    validate(need(p$xmin >= 0, 
+    validate(need(p$xmin >= 0,
                   "Highlighted portion is out of bounds on the x-axis of your image 2"))
-    validate(need(p$ymin >= 0, 
+    validate(need(p$ymin >= 0,
                   "Highlighted portion is out of bounds on the y-axis of your image 2"))
     preview <- shinyImageFile$shiny_img_origin
     if(length(dim(preview)) == 2)
@@ -444,11 +150,11 @@ server <- function(input, output, session) {
     if(length(dim(preview)) == 3)
       preview <- preview[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
     display(preview, method = "raster")
-    
+
     MAX <- dim(preview)[1:2]
     colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
     rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
-    
+
     for (x in colcuts) {
       lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
     }
@@ -456,37 +162,37 @@ server <- function(input, output, session) {
       lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
     }
   }
-  
+
   #shows a preview of the cropped function
-  #shows the keep button (originally hiding) 
+  #shows the keep button (originally hiding)
   output$plot2 <- renderPlot({
     p <- input$plot_brush
     validate(need(p != 'NULL', "Highlight a portion of the photo to see a cropped version!"))
-    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1], 
+    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1],
                   "Highlighted portion is out of bounds on the x-axis of your image 1"))
-    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2], 
+    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2],
                   "Highlighted portion is out of bounds on the y-axis of your image 1"))
-    validate(need(p$xmin >= 0, 
+    validate(need(p$xmin >= 0,
                   "Highlighted portion is out of bounds on the x-axis of your image 2"))
-    validate(need(p$ymin >= 0, 
+    validate(need(p$ymin >= 0,
                   "Highlighted portion is out of bounds on the y-axis of your image 2"))
-    
+
     croppedShiny(shinyImageFile$shiny_img_origin)
-    
+
     shinyjs::show("keep")
     shinyjs::show("segmentation")
   })
 
   observe({recursiveSegmentation()})
-  
+
   #only executes when Apply Segmentation is clicked
   recursiveSegmentation <- eventReactive(input$segmentation,{
     isolate({
       MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
       colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
       rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
-      
-      segmentation.list <- vector("list", length = input$strips)  
+
+      segmentation.list <- vector("list", length = input$strips)
       count <- 0
       for(i in 1:input$strips){
         tmp.list <- vector("list", length = 2*input$bands-1)
@@ -505,16 +211,16 @@ server <- function(input, output, session) {
       updateTabsetPanel(session, "tabs", selected = "tab2")
     })
   })
-  
+
   observe({
     input$thresh
     updateNumericInput(session, "selectStrip", max=input$strips)
   })
-  
+
   observe({input$channel})
-  
+
   observe({recursiveThreshold()})
-  
+
   recursiveThreshold <- eventReactive(input$threshold,{
     isolate({
       seg.list <- shinyImageFile$segmentation_list
@@ -537,7 +243,7 @@ server <- function(input, output, session) {
           }
           Background[[j]] <- as.numeric(imageData(img))
         }
-        Background.Threshold <- quantile(unlist(Background), 
+        Background.Threshold <- quantile(unlist(Background),
                                          probs = input$quantile1/100)
         shinyImageFile$Threshold <- Background.Threshold
         output$plot3 <- renderPlot({
@@ -660,11 +366,75 @@ server <- function(input, output, session) {
           }
         })
       }
+      if(input$thresh == 3){
+        Background.Threshold <- numeric(input$bands)
+        output$plot3 <- renderPlot({
+          par(mfcol = c(1, input$bands))
+          count1 <- 0
+          Bands <- seq(1, 2*input$bands-1, by = 2)
+          count2 <- 0
+          for(j in Bands){
+            count1 <- count1 + 1
+            count2 <- count2 + 1
+            img <- seg.list[[i]][[j]]
+            if(colorMode(img) > 0){
+              if(input$channel == 1)
+                img <- 1-channel(img, "luminance")
+              if(input$channel == 2)
+                img <- 1-channel(img, "gray")
+              if(input$channel == 3)
+                img <- 1-channel(img, "red")
+              if(input$channel == 4)
+                img <- 1-channel(img, "green")
+              if(input$channel == 5)
+                img <- 1-channel(img, "blue")
+            }
+            Background.Threshold[count1] <- MultiFlowExt::triangle(img)
+            signal <- imageData(img) > Background.Threshold[count1]
+            imageData(img) <- signal
+            plot(img)
+            title(paste0("Line ", count2))
+          }
+          shinyImageFile$Threshold <- Background.Threshold
+        })
+        shinyImageFile$Mean_Intensities <- matrix(0, nrow = 1, ncol = input$bands)
+        shinyImageFile$Median_Intensities <- matrix(0, nrow = 1, ncol = input$bands)
+        output$plot4 <- renderPlot({
+          par(mfcol = c(1, input$bands))
+          count1 <- 0
+          Bands <- seq(1, 2*input$bands-1, by = 2)
+          count2 <- 0
+          for(j in Bands){
+            count1 <- count1 + 1
+            count2 <- count2 + 1
+            img <- seg.list[[i]][[j]]
+            if(colorMode(img) > 0){
+              if(input$channel == 1)
+                img <- 1-channel(img, "luminance")
+              if(input$channel == 2)
+                img <- 1-channel(img, "gray")
+              if(input$channel == 3)
+                img <- 1-channel(img, "red")
+              if(input$channel == 4)
+                img <- 1-channel(img, "green")
+              if(input$channel == 5)
+                img <- 1-channel(img, "blue")
+            }
+            thr <- MultiFlowExt::triangle(img)
+            signal <- imageData(img) > thr
+            imageData(img) <- (imageData(img) - thr)*signal
+            shinyImageFile$Mean_Intensities[1,count1] <- mean(imageData(img)[signal])
+            shinyImageFile$Median_Intensities[1,count1] <- median(imageData(img)[signal])
+            plot(img)
+            title(paste0("Line ", count2))
+          }
+        })
+      }
     })
   })
 
   observe({recursiveData()})
-  
+
   recursiveData <- eventReactive(input$data,{
     isolate({
       AM <- shinyImageFile$Mean_Intensities
@@ -672,12 +442,12 @@ server <- function(input, output, session) {
       Med <- shinyImageFile$Median_Intensities
       colnames(Med) <- paste0("Median", 1:input$bands)
       if(input$thresh == 1){
-        BG.method <- matrix(c("Otsu", NA), nrow = 1, 
+        BG.method <- matrix(c("Otsu", NA), nrow = 1,
                             ncol = 2, byrow = TRUE)
         colnames(BG.method) <- c("Background", "Probability")
       }
-      if(input$thresh == 2){ 
-        BG.method <- matrix(c("quantile", input$quantile1), 
+      if(input$thresh == 2){
+        BG.method <- matrix(c("quantile", input$quantile1),
                             nrow = 1, ncol = 2, byrow = TRUE)
         colnames(BG.method) <- c("Background", "Probability")
       }
@@ -692,20 +462,20 @@ server <- function(input, output, session) {
         DF <- data.frame("File" = shinyImageFile$filename,
                          "Mode" = MODE,
                          "Strip" = input$selectStrip,
-                         BG.method, AM, Med, 
+                         BG.method, AM, Med,
                          check.names = FALSE)
       }else{
         DF <- data.frame("File" = shinyImageFile$filename,
                          "Mode" = NA,
                          "Strip" = input$selectStrip,
-                         BG.method, AM, Med, 
+                         BG.method, AM, Med,
                          check.names = FALSE)
       }
       if(inherits(try(IntensData, silent = TRUE), "try-error"))
         IntensData <<- DF
       else
         IntensData <<- rbind(IntensData, DF)
-      
+
       output$intens <- renderDT({
         DF <- IntensData
         datatable(DF)
@@ -720,7 +490,7 @@ server <- function(input, output, session) {
         shinyImageFile$Median_Intensities <- NULL
     })
   })
-  
+
   observe({recursiveShowIntensData()})
   recursiveShowIntensData <- eventReactive(input$showIntensData,{
     isolate({
@@ -742,7 +512,7 @@ server <- function(input, output, session) {
       suppressWarnings(rm(MergedData, pos = 1))
     })
   })
-  
+
   observe({recursiveDelete3()})
   recursiveDelete3 <- eventReactive(input$deleteData3,{
     isolate({
@@ -750,7 +520,7 @@ server <- function(input, output, session) {
       suppressWarnings(rm(CalibrationData, pos = 1))
     })
   })
-  
+
   observe({recursiveRefresh()})
   recursiveRefresh <- eventReactive(input$refreshData,{
     isolate({
@@ -770,7 +540,7 @@ server <- function(input, output, session) {
       })
     })
   })
-  
+
   observe({recursiveRefresh3()})
   recursiveRefresh3 <- eventReactive(input$refreshData3,{
     isolate({
@@ -795,9 +565,9 @@ server <- function(input, output, session) {
     suppressWarnings(rm(ExpInfo, pos = 1))
     suppressWarnings(rm(MergedData, pos = 1))
   })
-  
+
   observe({recursiveExpInfo()})
-  
+
   recursiveExpInfo <- eventReactive(input$expInfo,{
     updateTabsetPanel(session, "tabs", selected = "tab4")
   })
@@ -807,7 +577,7 @@ server <- function(input, output, session) {
     isolate({
       req(input$intensFile)
       tryCatch(
-        DF <- read.csv(input$intensFile$datapath, header = TRUE, 
+        DF <- read.csv(input$intensFile$datapath, header = TRUE,
                        check.names = FALSE),
         error = function(e){stop(safeError(e))}
       )
@@ -817,13 +587,13 @@ server <- function(input, output, session) {
       })
     })
   })
-  
+
   observe({recursiveUploadExpFile()})
   recursiveUploadExpFile <- eventReactive(input$expFile,{
     isolate({
       req(input$expFile)
       tryCatch(
-        DF <- read.csv(input$expFile$datapath, header = TRUE, 
+        DF <- read.csv(input$expFile$datapath, header = TRUE,
                        check.names = FALSE),
         error = function(e){stop(safeError(e))}
       )
@@ -831,7 +601,7 @@ server <- function(input, output, session) {
       MergedData <<- DF
       suppressWarnings(rm(CalibrationData, pos = 1))
       output$calibration <- renderDT({})
-      
+
       output$experiment <- renderDT({
         datatable(DF)
       })
@@ -843,7 +613,7 @@ server <- function(input, output, session) {
     isolate({
       req(input$prepFile)
       tryCatch(
-        DF <- read.csv(input$prepFile$datapath, header = TRUE, 
+        DF <- read.csv(input$prepFile$datapath, header = TRUE,
                        check.names = FALSE),
         error = function(e){stop(safeError(e))}
       )
@@ -853,39 +623,39 @@ server <- function(input, output, session) {
       })
     })
   })
-  
+
   observe({recursiveMerge()})
   recursiveMerge <- eventReactive(input$merge,{
     isolate({
       DF <- merge(ExpInfo, IntensData,
-                  by.x = input$mergeExp, 
+                  by.x = input$mergeExp,
                   by.y = input$mergeIntens, all = TRUE)
-      
+
       MergedData <<- DF
       CalibrationData <<- DF
-      
+
       output$experiment <- renderDT({
         datatable(DF)
       })
     })
   })
-  
+
   observe({recursivePrepare()})
   recursivePrepare <- eventReactive(input$prepare,{
     DF <- MergedData
     CalibrationData <<- DF
-    
+
     output$calibration <- renderDT({
       datatable(DF)
     })
-    
+
     updateTabsetPanel(session, "tabs", selected = "tab5")
   })
-  
+
   observe({recursiveCombReps()})
   recursiveCombReps <- eventReactive(input$combReps,{
     isolate({
-      Cols <- c(grep("Mean", colnames(MergedData)), 
+      Cols <- c(grep("Mean", colnames(MergedData)),
                 grep("Median", colnames(MergedData)))
       RES <- NULL
       if(input$colorsBands > 1){
@@ -916,91 +686,91 @@ server <- function(input, output, session) {
       rownames(RES) <- 1:nrow(RES)
       RES <- RES[order(RES[,input$combRepsColSI]),]
       CalibrationData <<- RES
-      
+
       output$calibration <- renderDT({
         datatable(RES)
       })
     })
   })
-  
+
   observe({recursiveReshapeWide()})
-  
+
   recursiveReshapeWide <- eventReactive(input$reshapeWide,{
     isolate({
       rm.file <- (colnames(CalibrationData) != colnames(MergedData)[1] &
                     colnames(CalibrationData) != input$reshapeCol)
       DF.split <- split(CalibrationData[,rm.file], CalibrationData[,input$reshapeCol])
-      
+
       N <- length(unique(CalibrationData[,input$reshapeCol]))
       if(N > 1){
         DF <- DF.split[[1]]
-        Cols <- c(grep("Mean", colnames(DF)), 
+        Cols <- c(grep("Mean", colnames(DF)),
                   grep("Median", colnames(DF)))
         Cols <- c(Cols, which(colnames(DF) == input$combRepsColSI))
         for(i in 2:N){
-          DF <- merge(DF, DF.split[[i]][,Cols], by = input$combRepsColSI, 
+          DF <- merge(DF, DF.split[[i]][,Cols], by = input$combRepsColSI,
                       suffixes = paste0(".", names(DF.split)[c(i-1,i)]))
         }
         CalibrationData <<- DF
       }else{
         DF <- CalibrationData
       }
-      
+
       output$calibration <- renderDT({
         datatable(DF)
       })
     })
   })
-  
+
   observe({recursiveRunCali()})
-  
+
   recursiveRunCali <- eventReactive(input$runCali,{
     isolate({
       if(is.integer(input$folder)){
-        PATH.OUT <- paste0(fs::path_home(), "/MultiFlow")
+        PATH.OUT <- paste0(fs::path_home(), "/MultiFlowExt")
         fs::dir_create(PATH.OUT)
         output$folder <- renderPrint({
           paste0("Folder for Results: ", PATH.OUT)
         })
       }else
         PATH.OUT <- parseDirPath(c(wd=fs::path_home()), input$folder)
-      
+
       FORMULA <- input$formula
-      
+
       if(inherits(try(as.formula(FORMULA), silent = TRUE), "try-error")){
         output$modelSummary <- renderPrint({ as.formula(FORMULA) })
         updateTabsetPanel(session, "tabs", selected = "tab6")
         return(NULL)
       }
-      
+
       SUBSET <- input$subset
-      save(CalibrationData, FORMULA, SUBSET, PATH.OUT, 
+      save(CalibrationData, FORMULA, SUBSET, PATH.OUT,
            file = paste0(PATH.OUT,"/CalibrationData.RData"))
-      
-      file.copy(from = system.file("markdown", "CalibrationAnalysis.Rmd", 
-                                   package="MultiFlow"), 
+
+      file.copy(from = system.file("markdown", "CalibrationAnalysis.Rmd",
+                                   package="MultiFlowExt"),
                 to = paste0(PATH.OUT, "/CalibrationAnalysis.Rmd"))
       rmarkdown::render(input = paste0(PATH.OUT, "/CalibrationAnalysis.Rmd"),
                         output_file = paste0(PATH.OUT, "/CalibrationAnalysis.html"))
-      
+
       load(file = paste0(PATH.OUT, "/CalibrationResults.RData"))
-      
+
       AIC.fit.sum <- summary(AIC.fit)
       R2 <- round(AIC.fit.sum$r.squared, 3)
       adj.R2 <- round(AIC.fit.sum$adj.r.squared, 3)
-      DF <- data.frame(Observed = AIC.fit$model[,1], 
+      DF <- data.frame(Observed = AIC.fit$model[,1],
                        Fitted = fitted(AIC.fit))
       output$modelSummary <- renderPrint({ AIC.fit })
-        
+
       output$plot5 <- renderPlot({
         ggplot(DF, aes(x = Observed, y = Fitted)) +
           geom_point() + geom_abline(slope = 1, intercept = 0) +
-          xlab("Observed value") + ylab("Fitted values") + 
-          annotate("text",  x=min(DF$Observed), y = max(DF$Fitted), 
-                   label = substitute(paste(R^2, " = ", R2, ", adj. ", R^2, " = ", adj.R2), 
-                                      list(R2 = R2, adj.R2 = adj.R2)), 
+          xlab("Observed value") + ylab("Fitted values") +
+          annotate("text",  x=min(DF$Observed), y = max(DF$Fitted),
+                   label = substitute(paste(R^2, " = ", R2, ", adj. ", R^2, " = ", adj.R2),
+                                      list(R2 = R2, adj.R2 = adj.R2)),
                    vjust=1, hjust=0, size = 5)
-        
+
       })
       output$LOB <- renderText({
         paste0("Limit of Blank (LOB): ", signif(LOB, 3))
@@ -1011,13 +781,13 @@ server <- function(input, output, session) {
       output$LOQ <- renderText({
         paste0("Limit of Quantification (LOQ): ", signif(LOQ, 3))
       })
-      
+
       updateTabsetPanel(session, "tabs", selected = "tab6")
     })
   })
-  
+
   observe({recursiveOpenReport()})
-  
+
   recursiveOpenReport <- eventReactive(input$openReport,{
     isolate({
       PATH.OUT <- parseDirPath(c(wd=fs::path_home()), input$folder)
@@ -1034,10 +804,10 @@ server <- function(input, output, session) {
     }
     xy_range_str <- function(e) {
       if(is.null(e)) return("NULL\n")
-      paste0("xmin=", round(e$xmin, 1), " xmax=", round(e$xmax, 1), 
+      paste0("xmin=", round(e$xmin, 1), " xmax=", round(e$xmax, 1),
              " ymin=", round(e$ymin, 1), " ymax=", round(e$ymax, 1))
     }
-    
+
     paste0(
       "click: ", xy_str(input$plot_click),
       "dblclick: ", xy_str(input$plot_dblclick),
@@ -1064,7 +834,7 @@ server <- function(input, output, session) {
   output$folder <- renderPrint({
     paste0("Folder for Results: ", parseDirPath(c(wd=fs::path_home()), input$folder))
   })
-  
+
   #allows user to download data
   output$downloadData <- downloadHandler(
     filename = "IntensityData.csv",
@@ -1084,16 +854,16 @@ server <- function(input, output, session) {
       write.csv(CalibrationData, file, row.names = FALSE)
     }
   )
-  shinyDirChoose(input, 'folder', 
-                 roots=c(wd=fs::path_home()), 
+  shinyDirChoose(input, 'folder',
+                 roots=c(wd=fs::path_home()),
                  filetypes=c(''))
 
 
   #When user clicks the return to command line button
   #stops the shiny app
-  # prevents user from quitting shiny using ^C on commandline 
+  # prevents user from quitting shiny using ^C on commandline
   observe({recursiveStop()})
-  
+
   recursiveStop <- eventReactive(input$stop,{
     isolate({
       suppressWarnings(rm(IntensData, pos = 1))
@@ -1104,6 +874,4 @@ server <- function(input, output, session) {
     })
   })
   #//////// END OF CODE FOR STOP SHINY APP ///////////////
-} #end of server
-
-shinyApp(ui, server)
+}
