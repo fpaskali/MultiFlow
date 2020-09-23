@@ -22,7 +22,7 @@ be installed automatically.
 ```{r, eval = FALSE}
 ## Install package remotes
 if(!require(remotes)) install.packages("remotes")
-## Install package MultiFlowExt
+## Install package MultiFlow
 remotes::install_github("fpaskali/MultiFlow", build_vignettes = TRUE)
 ```
 
