@@ -23,13 +23,13 @@ be installed automatically.
 ## Install package remotes
 if(!require(remotes)) install.packages("remotes")
 ## Install package MultiFlow
-remotes::install_github("fpaskali/MultiFlow", build_vignettes = TRUE)
+remotes::install_github("fpaskali/MultiFlow")
 ```
 
 ## Start App
 
 ```{r}
-MultiFlowExt::launchApp()
+MultiFlowExt::run_app()
 ```
 
 

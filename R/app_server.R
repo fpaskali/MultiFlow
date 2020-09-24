@@ -1,36 +1,22 @@
-#' Shiny app server function
-#' @title MultiFlow Extended
-#' @param input provided by shiny
-#' @param output provided by shiny
-#' @importFrom EBImage imageData display otsu readImage
-#' @importFrom fs path_home dir_create
-#' @import shiny stats
-#' @importFrom shinyFiles shinyDirChoose
-#' @importFrom DT DTOutput renderDT datatable
-#' @importFrom rmarkdown render
-#' @importFrom ggplot2 ggplot geom_point geom_abline ylab annotate
-#' @importFrom shinyjs useShinyjs hidden hide show reset
-#'
+#' The application server-side
+#' 
+#' @param input,output,session Internal parameters for {shiny}. 
+#'     DO NOT REMOVE.
+#' @import shiny
+#' @noRd
 
-## required packages
-library(shiny)
-library(shinyjs)
 library(EBImage)
-library(fs)
-library(shinyFiles)
-library(DT)
-library(rmarkdown)
-library(ggplot2)
 
-shinyAppServer <- function(input, output, session) {
+app_server <- function( input, output, session ) {
+  # List the first level callModules here
   options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
   shinyImageFile <- reactiveValues(shiny_img_origin = NULL, Threshold = NULL)
-
+  
   #checks radio for file input
   observe({
     #default: upload image
     if(input$radio == 1){
-      reset('file1') #allows plot1 to be null when radio is clicked
+      shinyjs::reset('file1') #allows plot1 to be null when radio is clicked
       # creates a warning to upload correct file
       # otherwise outputs image
       output$plot1 <- renderPlot({
@@ -43,35 +29,35 @@ shinyAppServer <- function(input, output, session) {
       # using sample image
       img <- readImage(system.file("images", "sample.TIF", package="MultiFlowExt"))
       shinyImageFile$shiny_img_origin <- img
-
+      
       shinyImageFile$filename <- "sample.TIF"
       #outputs image to plot1 -- main plot
-      output$plot1 <- renderPlot({ display(img, method = "raster") })
+      output$plot1 <- renderPlot({ EBImage::display(img, method = "raster") })
     }
   }) # end of observe
-
+  
   observe({
     input$file1
     input$radio
-
+    
     # reset plot brush
     session$resetBrush("plot_brush")
   })
-
+  
   #the datapath is different from the one needed to properly recognize photo
   #so this function renames the file
   renameUpload <- function(inFile){
     if(is.null(inFile))
       return(NULL)
-
+    
     oldNames <- inFile$datapath
     newNames <- file.path(dirname(inFile$datapath), inFile$name)
     file.rename(from = oldNames, to = newNames)
     inFile$datapath <- newNames
-
+    
     return(inFile$datapath)
   }
-
+  
   #if they enter a new file, their file will become the new imageFile
   observeEvent(input$file1, {
     # reseting plots and text messages
@@ -83,16 +69,16 @@ shinyAppServer <- function(input, output, session) {
       shinyImageFile$Mean_Intensities <- NULL
     if(!is.null(shinyImageFile$Median_Intensities))
       shinyImageFile$Median_Intensities <- NULL
-
+    
     shinyImageFile$filename <- input$file1$name
     img <- readImage(renameUpload(input$file1))
     shinyImageFile$shiny_img_origin <- img
-    output$plot1 <- renderPlot({display(img, method = "raster")})
+    output$plot1 <- renderPlot({EBImage::display(img, method = "raster")})
   })
-
+  
   #prompts shiny to look at recursive crop
   observe({recursiveCrop()})
-
+  
   #only executes when keep is clicked
   recursiveCrop <- eventReactive(input$keep,{
     isolate({
@@ -103,12 +89,12 @@ shinyAppServer <- function(input, output, session) {
       if(length(dim(img)) == 3)
         shinyImageFile$shiny_img_origin <- img[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
       output$plot1 <- renderPlot({
-        display(shinyImageFile$shiny_img_origin, method = "raster")
-
+        EBImage::display(shinyImageFile$shiny_img_origin, method = "raster")
+        
         MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
         colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
         rowcuts <- seq(1, MAX[2], length.out = 2*input$bands) # bands + spaces between bands
-
+        
         for (x in colcuts) {
           lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
         }
@@ -118,16 +104,17 @@ shinyAppServer <- function(input, output, session) {
       })
     })
     session$resetBrush("plot_brush")
+    shinyjs::enable("segmentation")
   })
-
+  
   #hides the keep button in the instance in which the user highlighted the plot
   #then clicks on the side so that the brush plot disappears
   #if user clicks keep without a valid brush, there will be errors
   #so we need to hide the button
   observeEvent(is.null(input$plot_brush), {
-    shinyjs::hide("keep")
+    shinyjs::disable("keep")
   })
-
+  
   #creates a clone of the image in the main image viewer
   #shows the user a preview of the cropped image
   #since shinyimg saves every image that is edited, we use a clone
@@ -149,12 +136,12 @@ shinyAppServer <- function(input, output, session) {
       preview <- preview[p$xmin:p$xmax, p$ymin:p$ymax, drop = FALSE]
     if(length(dim(preview)) == 3)
       preview <- preview[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
-    display(preview, method = "raster")
-
+    EBImage::display(preview, method = "raster")
+    
     MAX <- dim(preview)[1:2]
     colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
     rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
-
+    
     for (x in colcuts) {
       lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
     }
@@ -162,7 +149,7 @@ shinyAppServer <- function(input, output, session) {
       lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
     }
   }
-
+  
   #shows a preview of the cropped function
   #shows the keep button (originally hiding)
   output$plot2 <- renderPlot({
@@ -176,22 +163,21 @@ shinyAppServer <- function(input, output, session) {
                   "Highlighted portion is out of bounds on the x-axis of your image 2"))
     validate(need(p$ymin >= 0,
                   "Highlighted portion is out of bounds on the y-axis of your image 2"))
-
+    
     croppedShiny(shinyImageFile$shiny_img_origin)
-
-    shinyjs::show("keep")
-    shinyjs::show("segmentation")
+    
+    shinyjs::enable("keep")
   })
-
+  
   observe({recursiveSegmentation()})
-
+  
   #only executes when Apply Segmentation is clicked
   recursiveSegmentation <- eventReactive(input$segmentation,{
     isolate({
       MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
       colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
       rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
-
+      
       segmentation.list <- vector("list", length = input$strips)
       count <- 0
       for(i in 1:input$strips){
@@ -211,16 +197,16 @@ shinyAppServer <- function(input, output, session) {
       updateTabsetPanel(session, "tabs", selected = "tab2")
     })
   })
-
+  
   observe({
     input$thresh
     updateNumericInput(session, "selectStrip", max=input$strips)
   })
-
+  
   observe({input$channel})
-
+  
   observe({recursiveThreshold()})
-
+  
   recursiveThreshold <- eventReactive(input$threshold,{
     isolate({
       seg.list <- shinyImageFile$segmentation_list
@@ -432,9 +418,9 @@ shinyAppServer <- function(input, output, session) {
       }
     })
   })
-
+  
   observe({recursiveData()})
-
+  
   recursiveData <- eventReactive(input$data,{
     isolate({
       AM <- shinyImageFile$Mean_Intensities
@@ -450,6 +436,11 @@ shinyAppServer <- function(input, output, session) {
         BG.method <- matrix(c("quantile", input$quantile1),
                             nrow = 1, ncol = 2, byrow = TRUE)
         colnames(BG.method) <- c("Background", "Probability")
+      }
+      if(input$thresh == 3){
+        BG.method <- matrix(c("triangle", NA), nrow = 1, 
+                            ncol = 2, byrow = TRUE)
+        colnames(BG.method) <- c("Background", "Probability")        
       }
       seg.list <- shinyImageFile$segmentation_list
       img <- seg.list[[1]][[1]]
@@ -475,7 +466,7 @@ shinyAppServer <- function(input, output, session) {
         IntensData <<- DF
       else
         IntensData <<- rbind(IntensData, DF)
-
+      
       output$intens <- renderDT({
         DF <- IntensData
         datatable(DF)
@@ -490,21 +481,21 @@ shinyAppServer <- function(input, output, session) {
         shinyImageFile$Median_Intensities <- NULL
     })
   })
-
+  
   observe({recursiveShowIntensData()})
   recursiveShowIntensData <- eventReactive(input$showIntensData,{
     isolate({
       updateTabsetPanel(session, "tabs", selected = "tab3")
     })
   })
-
+  
   observe({recursiveDelete()})
   recursiveDelete <- eventReactive(input$deleteData,{
     isolate({
       suppressWarnings(rm(IntensData, pos = 1))
     })
   })
-
+  
   observe({recursiveDelete2()})
   recursiveDelete2 <- eventReactive(input$deleteData2,{
     isolate({
@@ -512,7 +503,7 @@ shinyAppServer <- function(input, output, session) {
       suppressWarnings(rm(MergedData, pos = 1))
     })
   })
-
+  
   observe({recursiveDelete3()})
   recursiveDelete3 <- eventReactive(input$deleteData3,{
     isolate({
@@ -520,7 +511,7 @@ shinyAppServer <- function(input, output, session) {
       suppressWarnings(rm(CalibrationData, pos = 1))
     })
   })
-
+  
   observe({recursiveRefresh()})
   recursiveRefresh <- eventReactive(input$refreshData,{
     isolate({
@@ -530,7 +521,7 @@ shinyAppServer <- function(input, output, session) {
       })
     })
   })
-
+  
   observe({recursiveRefresh2()})
   recursiveRefresh2 <- eventReactive(input$refreshData2,{
     isolate({
@@ -540,7 +531,7 @@ shinyAppServer <- function(input, output, session) {
       })
     })
   })
-
+  
   observe({recursiveRefresh3()})
   recursiveRefresh3 <- eventReactive(input$refreshData3,{
     isolate({
@@ -565,13 +556,13 @@ shinyAppServer <- function(input, output, session) {
     suppressWarnings(rm(ExpInfo, pos = 1))
     suppressWarnings(rm(MergedData, pos = 1))
   })
-
+  
   observe({recursiveExpInfo()})
-
+  
   recursiveExpInfo <- eventReactive(input$expInfo,{
     updateTabsetPanel(session, "tabs", selected = "tab4")
   })
-
+  
   observe({recursiveUploadIntens()})
   recursiveUploadIntens <- eventReactive(input$intensFile,{
     isolate({
@@ -587,7 +578,7 @@ shinyAppServer <- function(input, output, session) {
       })
     })
   })
-
+  
   observe({recursiveUploadExpFile()})
   recursiveUploadExpFile <- eventReactive(input$expFile,{
     isolate({
@@ -601,13 +592,13 @@ shinyAppServer <- function(input, output, session) {
       MergedData <<- DF
       suppressWarnings(rm(CalibrationData, pos = 1))
       output$calibration <- renderDT({})
-
+      
       output$experiment <- renderDT({
         datatable(DF)
       })
     })
   })
-
+  
   observe({recursiveUploadPrepFile()})
   recursiveUploadPrepFile <- eventReactive(input$prepFile,{
     isolate({
@@ -623,35 +614,35 @@ shinyAppServer <- function(input, output, session) {
       })
     })
   })
-
+  
   observe({recursiveMerge()})
   recursiveMerge <- eventReactive(input$merge,{
     isolate({
       DF <- merge(ExpInfo, IntensData,
                   by.x = input$mergeExp,
                   by.y = input$mergeIntens, all = TRUE)
-
+      
       MergedData <<- DF
       CalibrationData <<- DF
-
+      
       output$experiment <- renderDT({
         datatable(DF)
       })
     })
   })
-
+  
   observe({recursivePrepare()})
   recursivePrepare <- eventReactive(input$prepare,{
     DF <- MergedData
     CalibrationData <<- DF
-
+    
     output$calibration <- renderDT({
       datatable(DF)
     })
-
+    
     updateTabsetPanel(session, "tabs", selected = "tab5")
   })
-
+  
   observe({recursiveCombReps()})
   recursiveCombReps <- eventReactive(input$combReps,{
     isolate({
@@ -686,21 +677,21 @@ shinyAppServer <- function(input, output, session) {
       rownames(RES) <- 1:nrow(RES)
       RES <- RES[order(RES[,input$combRepsColSI]),]
       CalibrationData <<- RES
-
+      
       output$calibration <- renderDT({
         datatable(RES)
       })
     })
   })
-
+  
   observe({recursiveReshapeWide()})
-
+  
   recursiveReshapeWide <- eventReactive(input$reshapeWide,{
     isolate({
       rm.file <- (colnames(CalibrationData) != colnames(MergedData)[1] &
                     colnames(CalibrationData) != input$reshapeCol)
       DF.split <- split(CalibrationData[,rm.file], CalibrationData[,input$reshapeCol])
-
+      
       N <- length(unique(CalibrationData[,input$reshapeCol]))
       if(N > 1){
         DF <- DF.split[[1]]
@@ -715,15 +706,15 @@ shinyAppServer <- function(input, output, session) {
       }else{
         DF <- CalibrationData
       }
-
+      
       output$calibration <- renderDT({
         datatable(DF)
       })
     })
   })
-
+  
   observe({recursiveRunCali()})
-
+  
   recursiveRunCali <- eventReactive(input$runCali,{
     isolate({
       if(is.integer(input$folder)){
@@ -734,34 +725,34 @@ shinyAppServer <- function(input, output, session) {
         })
       }else
         PATH.OUT <- parseDirPath(c(wd=fs::path_home()), input$folder)
-
+      
       FORMULA <- input$formula
-
+      
       if(inherits(try(as.formula(FORMULA), silent = TRUE), "try-error")){
         output$modelSummary <- renderPrint({ as.formula(FORMULA) })
         updateTabsetPanel(session, "tabs", selected = "tab6")
         return(NULL)
       }
-
+      
       SUBSET <- input$subset
       save(CalibrationData, FORMULA, SUBSET, PATH.OUT,
            file = paste0(PATH.OUT,"/CalibrationData.RData"))
-
+      
       file.copy(from = system.file("markdown", "CalibrationAnalysis.Rmd",
                                    package="MultiFlowExt"),
                 to = paste0(PATH.OUT, "/CalibrationAnalysis.Rmd"))
       rmarkdown::render(input = paste0(PATH.OUT, "/CalibrationAnalysis.Rmd"),
                         output_file = paste0(PATH.OUT, "/CalibrationAnalysis.html"))
-
+      
       load(file = paste0(PATH.OUT, "/CalibrationResults.RData"))
-
+      
       AIC.fit.sum <- summary(AIC.fit)
       R2 <- round(AIC.fit.sum$r.squared, 3)
       adj.R2 <- round(AIC.fit.sum$adj.r.squared, 3)
       DF <- data.frame(Observed = AIC.fit$model[,1],
                        Fitted = fitted(AIC.fit))
       output$modelSummary <- renderPrint({ AIC.fit })
-
+      
       output$plot5 <- renderPlot({
         ggplot(DF, aes(x = Observed, y = Fitted)) +
           geom_point() + geom_abline(slope = 1, intercept = 0) +
@@ -770,7 +761,7 @@ shinyAppServer <- function(input, output, session) {
                    label = substitute(paste(R^2, " = ", R2, ", adj. ", R^2, " = ", adj.R2),
                                       list(R2 = R2, adj.R2 = adj.R2)),
                    vjust=1, hjust=0, size = 5)
-
+        
       })
       output$LOB <- renderText({
         paste0("Limit of Blank (LOB): ", signif(LOB, 3))
@@ -781,13 +772,13 @@ shinyAppServer <- function(input, output, session) {
       output$LOQ <- renderText({
         paste0("Limit of Quantification (LOQ): ", signif(LOQ, 3))
       })
-
+      
       updateTabsetPanel(session, "tabs", selected = "tab6")
     })
   })
-
+  
   observe({recursiveOpenReport()})
-
+  
   recursiveOpenReport <- eventReactive(input$openReport,{
     isolate({
       PATH.OUT <- parseDirPath(c(wd=fs::path_home()), input$folder)
@@ -795,7 +786,7 @@ shinyAppServer <- function(input, output, session) {
                 browser = getOption("browser"))
     })
   })
-
+  
   #creates the textbox below plot2 about the plot_brush details and etc
   output$info <- renderText({
     xy_str <- function(e) {
@@ -807,7 +798,7 @@ shinyAppServer <- function(input, output, session) {
       paste0("xmin=", round(e$xmin, 1), " xmax=", round(e$xmax, 1),
              " ymin=", round(e$ymin, 1), " ymax=", round(e$ymax, 1))
     }
-
+    
     paste0(
       "click: ", xy_str(input$plot_click),
       "dblclick: ", xy_str(input$plot_dblclick),
@@ -834,18 +825,18 @@ shinyAppServer <- function(input, output, session) {
   output$folder <- renderPrint({
     paste0("Folder for Results: ", parseDirPath(c(wd=fs::path_home()), input$folder))
   })
-
+  
   #allows user to download data
   output$downloadData <- downloadHandler(
     filename = "IntensityData.csv",
     content = function(file) {
-       write.csv(IntensData, file, row.names = FALSE)
+      write.csv(IntensData, file, row.names = FALSE)
     }
   )
   output$downloadData2 <- downloadHandler(
     filename = "MergedData.csv",
     content = function(file) {
-       write.csv(MergedData, file, row.names = FALSE)
+      write.csv(MergedData, file, row.names = FALSE)
     }
   )
   output$downloadData3 <- downloadHandler(
@@ -857,13 +848,13 @@ shinyAppServer <- function(input, output, session) {
   shinyDirChoose(input, 'folder',
                  roots=c(wd=fs::path_home()),
                  filetypes=c(''))
-
-
+  
+  
   #When user clicks the return to command line button
   #stops the shiny app
   # prevents user from quitting shiny using ^C on commandline
   observe({recursiveStop()})
-
+  
   recursiveStop <- eventReactive(input$stop,{
     isolate({
       suppressWarnings(rm(IntensData, pos = 1))
@@ -873,5 +864,4 @@ shinyAppServer <- function(input, output, session) {
       stopApp()
     })
   })
-  #//////// END OF CODE FOR STOP SHINY APP ///////////////
 }

@@ -1,15 +1,30 @@
 Package: MultiFlowExt
-Version: 0.1
-Date: 2020-08-21
 Title: Multiplex Lateral Flow Assays
-Authors@R: person("Filip", "Paskali", role = c("aut"),
-                  email = "filip.paskali@gmail.com")
-Author: Filip Paskali [aut]
-Maintainer: Filip Paskali <ilip.paskali@gmail.com>
-Depends: R(>= 4.0.0)
-Imports: stats, shiny, shinyjs, shinythemes, fs, shinyFiles, EBImage, DT, rmarkdown, ggplot2
-Suggests: knitr
-VignetteBuilder: knitr
+Version: 0.0.0.9000
+Authors@R: person('Filip', 'Paskali', email = 'filip.paskali@gmail.com', role = c('cre', 'aut'))
 Description: Image analysis (cropping, segmetation, thresholding, feature engineering) of images taken from lateral flow assays, computation of linear calibration models, automatic report generation via rmarkdown by means of a shiny app.
-License: LGPL-3
+License: GPL-3
+Imports: 
+    config,
+    golem,
+    shiny,
+    processx,
+    attempt,
+    DT,
+    glue,
+    htmltools,
+    stats,
+    shinyjs,
+    shinythemes,
+    fs,
+    shinyFiles,
+    EBImage,
+    rmarkdown,
+    ggplot2
+Encoding: UTF-8
+LazyData: true
 RoxygenNote: 7.1.1
+Suggests: 
+    testthat,
+    knitr
+VignetteBuilder: knitr

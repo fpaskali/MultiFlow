@@ -1,1 +1,0 @@
-MultiFlow::launchApp()
