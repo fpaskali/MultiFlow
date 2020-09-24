@@ -5,8 +5,6 @@
 #' @import shiny
 #' @noRd
 
-library(EBImage)
-
 app_server <- function( input, output, session ) {
   # List the first level callModules here
   options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
@@ -227,7 +225,7 @@ app_server <- function( input, output, session ) {
             if(input$channel == 5)
               img <- 1-channel(img, "blue")
           }
-          Background[[j]] <- as.numeric(imageData(img))
+          Background[[j]] <- as.numeric(EBImage::imageData(img))
         }
         Background.Threshold <- quantile(unlist(Background),
                                          probs = input$quantile1/100)
@@ -251,8 +249,8 @@ app_server <- function( input, output, session ) {
               if(input$channel == 5)
                 img <- 1-channel(img, "blue")
             }
-            signal <- imageData(img) > Background.Threshold
-            imageData(img) <- signal
+            signal <- EBImage::imageData(img) > Background.Threshold
+            EBImage::imageData(img) <- signal
             plot(img)
             title(paste0("Line ", count))
           }
@@ -279,10 +277,10 @@ app_server <- function( input, output, session ) {
               if(input$channel == 5)
                 img <- 1-channel(img, "blue")
             }
-            signal <- imageData(img) > Background.Threshold
-            imageData(img) <- (imageData(img) - Background.Threshold)*signal
-            shinyImageFile$Mean_Intensities[1,count] <- mean(imageData(img)[signal])
-            shinyImageFile$Median_Intensities[1,count] <- median(imageData(img)[signal])
+            signal <- EBImage::imageData(img) > Background.Threshold
+            EBImage::imageData(img) <- (EBImage::imageData(img) - Background.Threshold)*signal
+            shinyImageFile$Mean_Intensities[1,count] <- mean(EBImage::imageData(img)[signal])
+            shinyImageFile$Median_Intensities[1,count] <- median(EBImage::imageData(img)[signal])
             plot(img)
             title(paste0("Line ", count))
           }
@@ -312,8 +310,8 @@ app_server <- function( input, output, session ) {
                 img <- 1-channel(img, "blue")
             }
             Background.Threshold[count1] <- otsu(img)
-            signal <- imageData(img) > Background.Threshold[count1]
-            imageData(img) <- signal
+            signal <- EBImage::imageData(img) > Background.Threshold[count1]
+            EBImage::imageData(img) <- signal
             plot(img)
             title(paste0("Line ", count2))
           }
@@ -343,10 +341,10 @@ app_server <- function( input, output, session ) {
                 img <- 1-channel(img, "blue")
             }
             thr <- otsu(img)
-            signal <- imageData(img) > thr
-            imageData(img) <- (imageData(img) - thr)*signal
-            shinyImageFile$Mean_Intensities[1,count1] <- mean(imageData(img)[signal])
-            shinyImageFile$Median_Intensities[1,count1] <- median(imageData(img)[signal])
+            signal <- EBImage::imageData(img) > thr
+            EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
+            shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])
+            shinyImageFile$Median_Intensities[1,count1] <- median(EBImage::imageData(img)[signal])
             plot(img)
             title(paste0("Line ", count2))
           }
@@ -376,8 +374,8 @@ app_server <- function( input, output, session ) {
                 img <- 1-channel(img, "blue")
             }
             Background.Threshold[count1] <- MultiFlowExt::triangle(img)
-            signal <- imageData(img) > Background.Threshold[count1]
-            imageData(img) <- signal
+            signal <- EBImage::imageData(img) > Background.Threshold[count1]
+            EBImage::imageData(img) <- signal
             plot(img)
             title(paste0("Line ", count2))
           }
@@ -407,10 +405,10 @@ app_server <- function( input, output, session ) {
                 img <- 1-channel(img, "blue")
             }
             thr <- MultiFlowExt::triangle(img)
-            signal <- imageData(img) > thr
-            imageData(img) <- (imageData(img) - thr)*signal
-            shinyImageFile$Mean_Intensities[1,count1] <- mean(imageData(img)[signal])
-            shinyImageFile$Median_Intensities[1,count1] <- median(imageData(img)[signal])
+            signal <- EBImage::imageData(img) > thr
+            EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
+            shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])
+            shinyImageFile$Median_Intensities[1,count1] <- median(EBImage::imageData(img)[signal])
             plot(img)
             title(paste0("Line ", count2))
           }
