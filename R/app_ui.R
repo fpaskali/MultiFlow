@@ -128,6 +128,16 @@ app_ui <- function(request) {
                                                            "Triangle" = 3),
                                             selected = 1),
                                conditionalPanel(
+                                 condition = "input.thresh == 3",
+                                 numericInput(inputId = "tri_offset",
+                                              label = "Offset:",
+                                              value = 0.2,
+                                              min = 0,
+                                              max = 1,
+                                              step = 0.1,
+                                              width = NULL)
+                               ),
+                               conditionalPanel(
                                  condition = "input.thresh == 2",
                                  numericInput(inputId = "quantile1",
                                               label = "Probability [%]:",

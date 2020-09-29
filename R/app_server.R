@@ -373,7 +373,7 @@ app_server <- function( input, output, session ) {
               if(input$channel == 5)
                 img <- 1-channel(img, "blue")
             }
-            Background.Threshold[count1] <- MultiFlowExt::triangle(img)
+            Background.Threshold[count1] <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
             EBImage::imageData(img) <- signal
             plot(img)
@@ -404,7 +404,7 @@ app_server <- function( input, output, session ) {
               if(input$channel == 5)
                 img <- 1-channel(img, "blue")
             }
-            thr <- MultiFlowExt::triangle(img)
+            thr <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > thr
             EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
             shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])

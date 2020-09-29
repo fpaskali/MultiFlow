@@ -2,7 +2,7 @@
 #'
 #' @export triangle
 
-triangle <- function(image, breaks = 256) {
+triangle <- function(image, offset = 0.2, breaks = 256) {
   image_hist <- hist(image, breaks = breaks, plot = FALSE)
   hist_counts <- image_hist$counts
   hist_breaks <- image_hist$breaks
@@ -31,7 +31,7 @@ triangle <- function(image, breaks = 256) {
   # Finding the position of the maximal distance.
   arg_max_distance <- which.max(distances)
   # Adding the fixed offset to the maximal distance position.
-  arg_threshold <- arg_peak_height + arg_max_distance + width*0.2
+  arg_threshold <- arg_peak_height + arg_max_distance + width*offset
 
   return(hist_breaks[arg_threshold])
 }
