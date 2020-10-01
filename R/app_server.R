@@ -505,6 +505,11 @@ app_server <- function( input, output, session ) {
                             ncol = 2, byrow = TRUE)
         colnames(BG.method) <- c("Background", "Probability")        
       }
+      if(input$thresh == 4){
+        BG.method <- matrix(c("Li", NA), nrow = 1, 
+                            ncol = 2, byrow = TRUE)
+        colnames(BG.method) <- c("Background", "Probability")        
+      }
       seg.list <- shinyImageFile$segmentation_list
       img <- seg.list[[1]][[1]]
       if(colorMode(img) > 0){
