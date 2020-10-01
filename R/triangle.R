@@ -1,4 +1,4 @@
-#' Reimplementation of the triangle algorithm
+#' Triangle algorithm
 #'
 #' @export triangle
 

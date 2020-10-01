@@ -199,6 +199,7 @@ app_server <- function( input, output, session ) {
   observe({
     input$thresh
     updateNumericInput(session, "selectStrip", max=input$strips)
+    updateNumericInput(session, "li_tolerance", value=abs(min(diff(as.vector(shinyImageFile$shiny_img_origin))) / 2))
   })
   
   observe({input$channel})
@@ -405,6 +406,70 @@ app_server <- function( input, output, session ) {
                 img <- 1-channel(img, "blue")
             }
             thr <- MultiFlowExt::triangle(img, input$tri_offset)
+            signal <- EBImage::imageData(img) > thr
+            EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
+            shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])
+            shinyImageFile$Median_Intensities[1,count1] <- median(EBImage::imageData(img)[signal])
+            plot(img)
+            title(paste0("Line ", count2))
+          }
+        })
+      }
+      if(input$thresh == 4){
+        Background.Threshold <- numeric(input$bands)
+        output$plot3 <- renderPlot({
+          par(mfcol = c(1, input$bands))
+          count1 <- 0
+          Bands <- seq(1, 2*input$bands-1, by = 2)
+          count2 <- 0
+          for(j in Bands){
+            count1 <- count1 + 1
+            count2 <- count2 + 1
+            img <- seg.list[[i]][[j]]
+            if(colorMode(img) > 0){
+              if(input$channel == 1)
+                img <- 1-channel(img, "luminance")
+              if(input$channel == 2)
+                img <- 1-channel(img, "gray")
+              if(input$channel == 3)
+                img <- 1-channel(img, "red")
+              if(input$channel == 4)
+                img <- 1-channel(img, "green")
+              if(input$channel == 5)
+                img <- 1-channel(img, "blue")
+            }
+            Background.Threshold[count1] <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
+            signal <- EBImage::imageData(img) > Background.Threshold[count1]
+            EBImage::imageData(img) <- signal
+            plot(img)
+            title(paste0("Line ", count2))
+          }
+          shinyImageFile$Threshold <- Background.Threshold
+        })
+        shinyImageFile$Mean_Intensities <- matrix(0, nrow = 1, ncol = input$bands)
+        shinyImageFile$Median_Intensities <- matrix(0, nrow = 1, ncol = input$bands)
+        output$plot4 <- renderPlot({
+          par(mfcol = c(1, input$bands))
+          count1 <- 0
+          Bands <- seq(1, 2*input$bands-1, by = 2)
+          count2 <- 0
+          for(j in Bands){
+            count1 <- count1 + 1
+            count2 <- count2 + 1
+            img <- seg.list[[i]][[j]]
+            if(colorMode(img) > 0){
+              if(input$channel == 1)
+                img <- 1-channel(img, "luminance")
+              if(input$channel == 2)
+                img <- 1-channel(img, "gray")
+              if(input$channel == 3)
+                img <- 1-channel(img, "red")
+              if(input$channel == 4)
+                img <- 1-channel(img, "green")
+              if(input$channel == 5)
+                img <- 1-channel(img, "blue")
+            }
+            thr <- MultiFlowExt::threshold_li(img, tolerance=input$tri_offset)
             signal <- EBImage::imageData(img) > thr
             EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
             shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])

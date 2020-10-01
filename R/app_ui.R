@@ -125,8 +125,19 @@ app_ui <- function(request) {
                                             label = ("Threshold method"),
                                             choices = list("Otsu" = 1,
                                                            "Quantile" = 2,
-                                                           "Triangle" = 3),
+                                                           "Triangle" = 3,
+                                                           "Li" = 4),
                                             selected = 1),
+                               conditionalPanel(
+                                 condition = "input.thresh == 4",
+                                 numericInput(inputId = "li_tolerance",
+                                              label = "Tolerance:",
+                                              value = 0.1,
+                                              min = 0,
+                                              max = 1,
+                                              step = 0.01,
+                                              width = NULL)
+                               ),
                                conditionalPanel(
                                  condition = "input.thresh == 3",
                                  numericInput(inputId = "tri_offset",

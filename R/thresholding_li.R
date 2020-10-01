@@ -1,9 +1,14 @@
+#' Li thresholding algorithm
+#'
+#' @export threshold_li
+
 threshold_li <- function(image, tolerance=NULL, initial_guess=NULL, iter_callback=NULL) {
   # For Li's algorithm to work, the image should be positive
   image_min <- min(image)
   image <- image - image_min
+  # Tolerance has to be positive or there is a risk of while loop to be infinite.
   if (is.null(tolerance)) {
-    min(diff(as.vector(image))) / 2
+    tolerance <- abs(min(diff(as.vector(image))) / 2)
   }
   # Initial estimate for iterations
   if (is.null(initial_guess)) {
@@ -23,7 +28,7 @@ threshold_li <- function(image, tolerance=NULL, initial_guess=NULL, iter_callbac
     }
   }
   # The difference between t_next and t_curr should be equal to the tolerance.
-  t_curr <- -2 * tolerance
+  t_curr <- tolerance * -2
   
   if (!is.null(iter_callback)) {
     iter_callback(t_next + image_min)
@@ -36,15 +41,14 @@ threshold_li <- function(image, tolerance=NULL, initial_guess=NULL, iter_callbac
     foreground <- (image > t_curr)
     mean_fore <- mean(image[foreground])
     mean_back <- mean(image[!foreground])
-    
+
     t_next <- ((mean_back - mean_fore) /
                (log(mean_back) - log(mean_fore)))
-    
+
     if (!is.null(iter_callback)) {
       iter_callback(t_next + image_min)
     }
   }
-
   threshold <- t_next + image_min
   return(threshold)
 }

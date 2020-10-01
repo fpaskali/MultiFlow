@@ -2,10 +2,10 @@
 % Please edit documentation in R/triangle.R
 \name{triangle}
 \alias{triangle}
-\title{Reimplementation of the triangle algorithm}
+\title{Triangle algorithm}
 \usage{
-triangle(image, breaks = 256)
+triangle(image, offset = 0.2, breaks = 256)
 }
 \description{
-Reimplementation of the triangle algorithm
+Triangle algorithm
 }
