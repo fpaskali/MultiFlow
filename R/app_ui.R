@@ -5,7 +5,7 @@
 #' @import shiny
 #' @import shinyjs
 #' @import stats
-#' @importFrom shinyFiles shinyDirButton shinyDirChoose
+#' @importFrom shinyFiles shinyDirButton shinyDirChoose parseDirPath
 #' @importFrom EBImage otsu readImage colorMode
 #' @importFrom fs path_home dir_create
 #' @importFrom DT DTOutput renderDT datatable
