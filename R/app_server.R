@@ -84,19 +84,17 @@ app_server <- function( input, output, session ) {
   recursiveCrop <- eventReactive(input$plot_dblclick,{
     isolate({
         p <- input$plot_brush
+        validate(need(p$xmax <= dim(shinyImageFile$shiny_img_crop)[1], 
+                      "Highlighted portion is out of bounds on the x-axis"))
+        validate(need(p$ymax <= dim(shinyImageFile$shiny_img_crop)[2], 
+                      "Highlighted portion is out of bounds on the y-axis"))
+        validate(need(p$xmin >= 0, 
+                      "Highlighted portion is out of bounds on the x-axis"))
+        validate(need(p$ymin >= 0, 
+                      "Highlighted portion is out of bounds on the y-axis"))
         shinyImageFile$shiny_img_crop <- croppedImage(shinyImageFile$shiny_img_crop, p$xmin, p$ymin, p$xmax, p$ymax)
         output$plot1 <- renderPlot({
           EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")
-          MAX <- dim(shinyImageFile$shiny_img_crop)[1:2]
-          colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
-          rowcuts <- seq(1, MAX[2], length.out = 2*input$bands) # bands + spaces between bands
-
-          for (x in colcuts) {
-            lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
-          }
-          for (y in rowcuts) {
-            lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
-          }
         })
     })
     session$resetBrush("plot_brush")

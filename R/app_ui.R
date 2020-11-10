@@ -67,8 +67,7 @@ app_ui <- function(request) {
                                               hover = "plot_hover",
                                               brush = brushOpts(
                                                 id="plot_brush",
-                                                delay = 1000,
-                                                clip = TRUE)),
+                                                delay = 1000)),
                                    '<br/>',
                                    column(6,
                                      actionButton("keep", label = "Reset")
