@@ -8,7 +8,9 @@
 app_server <- function( input, output, session ) {
   # List the first level callModules here
   options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
-  shinyImageFile <- reactiveValues(shiny_img_origin = NULL, Threshold = NULL)
+  shinyImageFile <- reactiveValues(shiny_img_origin = NULL, shiny_img_crop = NULL, Threshold = NULL)
+  crop_cor <- NULL
+  IntensData <- NULL
   
   #checks radio for file input
   observe({
@@ -27,6 +29,7 @@ app_server <- function( input, output, session ) {
       # using sample image
       img <- readImage(system.file("images", "sample.TIF", package="MultiFlowExt"))
       shinyImageFile$shiny_img_origin <- img
+      shinyImageFile$shiny_img_crop <- img
       
       shinyImageFile$filename <- "sample.TIF"
       #outputs image to plot1 -- main plot
@@ -78,39 +81,59 @@ app_server <- function( input, output, session ) {
   observe({recursiveCrop()})
   
   #only executes when keep is clicked
-  recursiveCrop <- eventReactive(input$keep,{
+  recursiveCrop <- eventReactive(input$plot_dblclick,{
+    isolate({
+        p <- input$plot_brush
+        shinyImageFile$shiny_img_crop <- croppedImage(shinyImageFile$shiny_img_crop, p$xmin, p$ymin, p$xmax, p$ymax)
+        output$plot1 <- renderPlot({
+          EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")
+          MAX <- dim(shinyImageFile$shiny_img_crop)[1:2]
+          colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
+          rowcuts <- seq(1, MAX[2], length.out = 2*input$bands) # bands + spaces between bands
+
+          for (x in colcuts) {
+            lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
+          }
+          for (y in rowcuts) {
+            lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
+          }
+        })
+    })
+    session$resetBrush("plot_brush")
+    shinyjs::disable("segmentation")
+  })
+  
+  observe({recursiveGrid()})
+  
+  recursiveGrid <- eventReactive(input$plot_brush,{
     isolate({
       p <- input$plot_brush
-      img <- shinyImageFile$shiny_img_origin
-      if(length(dim(img)) == 2)
-        shinyImageFile$shiny_img_origin <- img[p$xmin:p$xmax, p$ymin:p$ymax, drop = FALSE]
-      if(length(dim(img)) == 3)
-        shinyImageFile$shiny_img_origin <- img[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
       output$plot1 <- renderPlot({
-        EBImage::display(shinyImageFile$shiny_img_origin, method = "raster")
-        
-        MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
-        colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
-        rowcuts <- seq(1, MAX[2], length.out = 2*input$bands) # bands + spaces between bands
+          EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")
+
+        colcuts <- seq(p$xmin, p$xmax, length.out = input$strips + 1)
+        rowcuts <- seq(p$ymin, p$ymax, length.out = 2*input$bands) # bands + spaces between bands
         
         for (x in colcuts) {
-          lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
+          lines(x = rep(x, 2), y = c(p$ymin, p$ymax), col="red")
         }
         for (y in rowcuts) {
-          lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
+          lines(x = c(p$xmin, p$xmax), y = rep(y, 2), col="red")
         }
       })
     })
-    session$resetBrush("plot_brush")
+    # session$resetBrush("plot_brush")
     shinyjs::enable("segmentation")
   })
   
-  #hides the keep button in the instance in which the user highlighted the plot
-  #then clicks on the side so that the brush plot disappears
-  #if user clicks keep without a valid brush, there will be errors
-  #so we need to hide the button
-  observeEvent(is.null(input$plot_brush), {
-    shinyjs::disable("keep")
+  observe({resetImage()})
+  
+  resetImage <- eventReactive(input$keep,{
+    isolate({
+        shinyImageFile$shiny_img_crop <- shinyImageFile$shiny_img_origin
+        output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")})
+      })
+    session$resetBrush("plot_brush")
   })
   
   #creates a clone of the image in the main image viewer
@@ -118,70 +141,30 @@ app_server <- function( input, output, session ) {
   #since shinyimg saves every image that is edited, we use a clone
   #so that we aren't saving any of the previews
   #till the user clicks keep
-  croppedShiny <- function(image){
-    p <- input$plot_brush
-    validate(need(p != 'NULL', "Highlight a portion of the photo to see a cropped version!"))
-    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1],
-                  "Highlighted portion is out of bounds on the x-axis of your image 1"))
-    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2],
-                  "Highlighted portion is out of bounds on the y-axis of your image 1"))
-    validate(need(p$xmin >= 0,
-                  "Highlighted portion is out of bounds on the x-axis of your image 2"))
-    validate(need(p$ymin >= 0,
-                  "Highlighted portion is out of bounds on the y-axis of your image 2"))
-    preview <- shinyImageFile$shiny_img_origin
-    if(length(dim(preview)) == 2)
-      preview <- preview[p$xmin:p$xmax, p$ymin:p$ymax, drop = FALSE]
-    if(length(dim(preview)) == 3)
-      preview <- preview[p$xmin:p$xmax, p$ymin:p$ymax, , drop = FALSE]
-    EBImage::display(preview, method = "raster")
-    
-    MAX <- dim(preview)[1:2]
-    colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
-    rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
-    
-    for (x in colcuts) {
-      lines(x = rep(x, 2), y = c(1, MAX[2]), col="red")
-    }
-    for (y in rowcuts) {
-      lines(x = c(1, MAX[1]), y = rep(y, 2), col="red")
-    }
+  croppedImage <- function(image, xmin, ymin, xmax, ymax){
+    if(length(dim(image)) == 2)
+      image <- image[xmin:xmax, ymin:ymax, drop = FALSE]
+    if(length(dim(image)) == 3)
+      image <- image[xmin:xmax, ymin:ymax, ,drop = FALSE]
+    return(image)
   }
-  
-  #shows a preview of the cropped function
-  #shows the keep button (originally hiding)
-  output$plot2 <- renderPlot({
-    p <- input$plot_brush
-    validate(need(p != 'NULL', "Highlight a portion of the photo to see a cropped version!"))
-    validate(need(p$xmax <= dim(shinyImageFile$shiny_img_origin)[1],
-                  "Highlighted portion is out of bounds on the x-axis of your image 1"))
-    validate(need(p$ymax <= dim(shinyImageFile$shiny_img_origin)[2],
-                  "Highlighted portion is out of bounds on the y-axis of your image 1"))
-    validate(need(p$xmin >= 0,
-                  "Highlighted portion is out of bounds on the x-axis of your image 2"))
-    validate(need(p$ymin >= 0,
-                  "Highlighted portion is out of bounds on the y-axis of your image 2"))
-    
-    croppedShiny(shinyImageFile$shiny_img_origin)
-    
-    shinyjs::enable("keep")
-  })
   
   observe({recursiveSegmentation()})
   
   #only executes when Apply Segmentation is clicked
   recursiveSegmentation <- eventReactive(input$segmentation,{
     isolate({
-      MAX <- dim(shinyImageFile$shiny_img_origin)[1:2]
-      colcuts <- seq(1, MAX[1], length.out = input$strips + 1)
-      rowcuts <- seq(1, MAX[2], length.out = 2*input$bands)
+      p <- input$plot_brush
+      MAX <- dim(shinyImageFile$shiny_img_crop)[1:2]
+      colcuts <- seq(p$xmin, p$xmax, length.out = input$strips + 1)
+      rowcuts <- seq(p$ymin, p$ymax, length.out = 2*input$bands)
       
       segmentation.list <- vector("list", length = input$strips)
       count <- 0
       for(i in 1:input$strips){
         tmp.list <- vector("list", length = 2*input$bands-1)
         for(j in 1:(2*input$bands-1)){
-          img <- shinyImageFile$shiny_img_origin
+          img <- shinyImageFile$shiny_img_crop
           if(length(dim(img)) == 2)
             img <- img[colcuts[i]:colcuts[i+1], rowcuts[j]:rowcuts[j+1]]
           if(length(dim(img)) == 3)
@@ -199,7 +182,6 @@ app_server <- function( input, output, session ) {
   observe({
     input$thresh
     updateNumericInput(session, "selectStrip", max=input$strips)
-    updateNumericInput(session, "li_tolerance", value=abs(min(diff(as.vector(shinyImageFile$shiny_img_origin))) / 2))
   })
   
   observe({input$channel})

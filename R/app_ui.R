@@ -65,25 +65,20 @@ app_ui <- function(request) {
                                               click = "plot_click",
                                               dblclick = "plot_dblclick",
                                               hover = "plot_hover",
-                                              brush = "plot_brush"),
+                                              brush = brushOpts(
+                                                id="plot_brush",
+                                                delay = 1000,
+                                                clip = TRUE)),
                                    '<br/>',
-                                   column(6, shinyjs::disabled(
-                                     actionButton("keep", label = "3) Apply Crop"))
+                                   column(6,
+                                     actionButton("keep", label = "Reset")
                                    ),
-                                   tags$style(type='text/css', "#segmentation { display: block; width:70%; margin-left: auto; margin-right:auto;}"),
+                                   tags$style(type='text/css', "#keep { display: block; width:30%; margin-left: auto; margin-right:auto;}"),
                                    column(6, shinyjs::disabled(
-                                     actionButton("segmentation", label = "4) Apply Segmentation"))
+                                     actionButton("segmentation", label = "Apply Segmentation"))
                                    ),
-                                   tags$style(type='text/css', "#segmentation { display: block; width:50%; margin-left: auto; margin-right:auto;}"),
-                                   '<br/>','<br/>',
-                                   h3('Preview Crop', align = "center"),
-                                   h6('Click and drag where you would like to crop the photo. To keep the cropped version, press Apply Crop', align = "center"),
-                                   '<br/>',
-                                   plotOutput("plot2"),
-                                   '<br/>',
-                                   tags$style(type='text/css', "#keep { display:block; width:30%; margin-left: auto; margin-right:auto;}"),
-                                   '<br/>',
-                                   verbatimTextOutput("info")
+                                   tags$style(type='text/css', "#segmentation { display: block; width:60%; margin-left: auto; margin-right:auto;}"),
+                                   '<br/>','<br/>'
                                  )
                                ),
                                width = 8
