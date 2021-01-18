@@ -75,8 +75,8 @@ app_server <- function( input, output, session ) {
                     min=-90, max=90, value=0),
         actionButton("rotateCCW", "-90"),
         actionButton("rotateCW", "+90"),
-        actionButton("fliphorizontal", "FH"),
-        actionButton("flipvertical", "FV"),
+        actionButton("fliphor", "FH"),
+        actionButton("flipver", "FV"),
       )
     })
   }
