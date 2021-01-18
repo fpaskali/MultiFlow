@@ -99,13 +99,14 @@ app_ui <- function(request) {
                                  condition = "input.colorImage == 2",
                                  radioButtons("channel",
                                               label = ("Conversion mode"),
-                                              choices = list("luminance" = 1,
-                                                             "gray" = 2,
-                                                             "red" = 3,
-                                                             "green" = 4,
-                                                             "blue" = 5),
-                                              selected = 1)
+                                              choices = list("luminance",
+                                                             "gray",
+                                                             "red",
+                                                             "green",
+                                                             "blue"),
+                                              selected = "luminance")
                                ),
+                               checkboxInput("invert", "Invert colors", value=FALSE),
                                radioButtons("thresh",
                                             label = ("Threshold method"),
                                             choices = list("Otsu" = 1,
@@ -114,13 +115,23 @@ app_ui <- function(request) {
                                                            "Li" = 4),
                                             selected = 1),
                                conditionalPanel(
+                                 condition = "input.thresh == 4",
+                                 numericInput(inputId = "li_tolerance",
+                                              label = "Tolerance:",
+                                              value = 0,
+                                              min = 0,
+                                              max = 1,
+                                              step = 0.01,
+                                              width = NULL)
+                               ),
+                               conditionalPanel(
                                  condition = "input.thresh == 3",
                                  numericInput(inputId = "tri_offset",
                                               label = "Offset:",
                                               value = 0.2,
                                               min = 0,
                                               max = 1,
-                                              step = 0.1,
+                                              step = 0.01,
                                               width = NULL)
                                ),
                                conditionalPanel(

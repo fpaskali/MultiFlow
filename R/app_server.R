@@ -60,6 +60,7 @@ app_server <- function( input, output, session ) {
     img <- readImage(input$file1$datapath)
     shinyImageFile$shiny_img_origin <- img
     shinyImageFile$shiny_img_cropped <- img
+    shinyImageFile$shiny_img_final <- img
     output$plot1 <- renderPlot({EBImage::display(img, method = "raster")})
     drawRotatePanel()
   })
@@ -86,7 +87,7 @@ app_server <- function( input, output, session ) {
     isolate({
       if (!is.null(shinyImageFile$shiny_img_cropped)) {
       shinyImageFile$shiny_img_final <- EBImage::rotate(shinyImageFile$shiny_img_cropped, input$rotate,
-                                                       output.dim = dim(shinyImageFile$shiny_img_origin)[1:2])
+                                                       output.dim = dim(shinyImageFile$shiny_img_cropped)[1:2])
       output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
       session$resetBrush("plot_brush")
       }
@@ -159,10 +160,11 @@ app_server <- function( input, output, session ) {
     isolate({
       # For now, resetting only the grid is enough. If there is a need of resseting the image
       # and rotation settings, uncommennt following three lines.
-      # shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
-      # output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+      shinyImageFile$shiny_img_cropped <- shinyImageFile$shiny_img_origin
+      shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+      output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
       session$resetBrush("plot_brush")
-      # updateSliderInput(session, "rotate", value=0)
+      updateSliderInput(session, "rotate", value=0)
       shinyjs::disable("segmentation")
     })
   })
@@ -271,7 +273,10 @@ app_server <- function( input, output, session ) {
         for(j in 1:input$bands){
           img <- seg.list[[i]][[j]]
           if(colorMode(img) > 0){
-            img <- 1-channel(img, input$channel)
+            img <- 1-EBImage::channel(img, input$channel)
+          }
+          if(input$invert) {
+            img <- 1 - img
           }
           Background[[j]] <- as.numeric(EBImage::imageData(img))
         }
@@ -286,7 +291,10 @@ app_server <- function( input, output, session ) {
             count <- count + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             signal <- EBImage::imageData(img) > Background.Threshold
             EBImage::imageData(img) <- signal
@@ -305,7 +313,10 @@ app_server <- function( input, output, session ) {
             count <- count + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             signal <- EBImage::imageData(img) > Background.Threshold
             EBImage::imageData(img) <- (EBImage::imageData(img) - Background.Threshold)*signal
@@ -328,7 +339,10 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             Background.Threshold[count1] <- otsu(img)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
@@ -350,7 +364,10 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             thr <- otsu(img)
             signal <- EBImage::imageData(img) > thr
@@ -374,7 +391,10 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             Background.Threshold[count1] <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
@@ -396,7 +416,10 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
+            }
+            if(input$invert) {
+              img <- 1 - img
             }
             thr <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > thr
@@ -420,9 +443,16 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
             }
-            Background.Threshold[count1] <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
+            if(input$invert) {
+              img <- 1 - img
+            }
+            if(input$li_tolerance != 0) {
+              Background.Threshold[count1] <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
+            } else {
+              Background.Threshold[count1] <- MultiFlowExt::threshold_li(img)
+            }
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
             EBImage::imageData(img) <- signal
             plot(img)
@@ -442,9 +472,16 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              img <- 1-channel(img, input$channel)
+              img <- 1-EBImage::channel(img, input$channel)
             }
-            thr <- MultiFlowExt::threshold_li(img, tolerance=input$tri_offset)
+            if(input$invert) {
+              img <- 1 - img
+            }
+            if(input$li_tolerance != 0) {
+              thr <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
+            } else {
+              thr <- MultiFlowExt::threshold_li(img)
+            }
             signal <- EBImage::imageData(img) > thr
             EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
             shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])
