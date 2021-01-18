@@ -11,6 +11,7 @@ app_server <- function( input, output, session ) {
   options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
   shinyImageFile <- reactiveValues(shiny_img_origin = NULL, shiny_img_cropped = NULL,
                                    shiny_img_final = NULL, Threshold = NULL)
+  IntensData <- NULL
   
   #checks upload for file input
   observe({
@@ -548,8 +549,8 @@ app_server <- function( input, output, session ) {
         DF <- IntensData
         datatable(DF)
       })
-      output$plot3 <- renderPlot({})
-      output$plot4 <- renderPlot({})
+      output$plot3 <- NULL
+      output$plot4 <- NULL
       if(!is.null(shinyImageFile$Threshold))
         shinyImageFile$Threshold <- NULL
       if(!is.null(shinyImageFile$Mean_Intensities))
@@ -569,23 +570,26 @@ app_server <- function( input, output, session ) {
   observe({recursiveDelete()})
   recursiveDelete <- eventReactive(input$deleteData,{
     isolate({
-      suppressWarnings(rm(IntensData, pos = 1))
+      IntensData <<- NULL
+      output$intens <- renderDT({})
     })
   })
   
   observe({recursiveDelete2()})
   recursiveDelete2 <- eventReactive(input$deleteData2,{
     isolate({
-      suppressWarnings(rm(ExpInfo, pos = 1))
-      suppressWarnings(rm(MergedData, pos = 1))
+      ExpInfo <<- NULL
+      MergedData <<- NULL
+      output$experiment <- renderDT({})
     })
   })
   
   observe({recursiveDelete3()})
   recursiveDelete3 <- eventReactive(input$deleteData3,{
     isolate({
-      suppressWarnings(rm(MergedData, pos = 1))
-      suppressWarnings(rm(CalibrationData, pos = 1))
+      MergedData <<- NULL
+      CalibrationData <<- NULL
+      output$calibration <- renderDT({})
     })
   })
   
@@ -865,24 +869,6 @@ app_server <- function( input, output, session ) {
   })
   
   #creates the textbox below plot2 about the plot_brush details and etc
-  output$info <- renderText({
-    xy_str <- function(e) {
-      if(is.null(e)) return("NULL\n")
-      paste0("x=", round(e$x, 1), " y=", round(e$y, 1), "\n")
-    }
-    xy_range_str <- function(e) {
-      if(is.null(e)) return("NULL\n")
-      paste0("xmin=", round(e$xmin, 1), " xmax=", round(e$xmax, 1),
-             " ymin=", round(e$ymin, 1), " ymax=", round(e$ymax, 1))
-    }
-    
-    paste0(
-      "click: ", xy_str(input$plot_click),
-      "dblclick: ", xy_str(input$plot_dblclick),
-      "hover: ", xy_str(input$plot_hover),
-      "brush: ", xy_range_str(input$plot_brush)
-    )
-  })
   output$thresh <- renderText({
     if(!is.null(shinyImageFile$Threshold))
       paste0("Threshold(s): ", paste0(signif(shinyImageFile$Threshold, 4), collapse = ", "))
