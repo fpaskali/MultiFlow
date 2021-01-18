@@ -6,76 +6,167 @@
 #' @noRd
 
 app_server <- function( input, output, session ) {
-  # List the first level callModules here
-  options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
-  shinyImageFile <- reactiveValues(shiny_img_origin = NULL, shiny_img_crop = NULL, Threshold = NULL)
-  crop_cor <- NULL
-  IntensData <- NULL
+  ###### FIRST TAB
   
-  #checks radio for file input
+  options(shiny.maxRequestSize=50*1024^2) #file can be up to 50 mb; default is 5 mb
+  shinyImageFile <- reactiveValues(shiny_img_origin = NULL, shiny_img_cropped = NULL,
+                                   shiny_img_final = NULL, Threshold = NULL)
+  
+  #checks upload for file input
   observe({
     #default: upload image
-    if(input$radio == 1){
-      shinyjs::reset('file1') #allows plot1 to be null when radio is clicked
-      # creates a warning to upload correct file
-      # otherwise outputs image
+    if(input$upload == 1){
       output$plot1 <- renderPlot({
+        if(is.null(input$file1)) {
+          output$rotatePanel <- renderUI({})
+        }
         validate(need(!is.null(input$file1), "Must upload a valid jpg, png, or tiff"))
-        if(is.null(input$file1))
-          return(NULL)
       })
     }
-    if(input$radio == 2){
+    if(input$upload == 2){
       # using sample image
       img <- readImage(system.file("images", "sample.TIF", package="MultiFlowExt"))
       shinyImageFile$shiny_img_origin <- img
-      shinyImageFile$shiny_img_crop <- img
+      shinyImageFile$shiny_img_cropped <- img
+      shinyImageFile$shiny_img_final <- img
       
       shinyImageFile$filename <- "sample.TIF"
       #outputs image to plot1 -- main plot
-      output$plot1 <- renderPlot({ EBImage::display(img, method = "raster") })
+      output$plot1 <- renderPlot({ EBImage::display(shinyImageFile$shiny_img_final, method = "raster") })
+      drawRotatePanel()
     }
   }) # end of observe
   
-  observe({
-    input$file1
-    input$radio
-    
-    # reset plot brush
-    session$resetBrush("plot_brush")
-  })
+  # NOTE renameUpload is completely unecessary. The app works without it perfectly.
   
-  #the datapath is different from the one needed to properly recognize photo
-  #so this function renames the file
-  renameUpload <- function(inFile){
-    if(is.null(inFile))
-      return(NULL)
-    
-    oldNames <- inFile$datapath
-    newNames <- file.path(dirname(inFile$datapath), inFile$name)
-    file.rename(from = oldNames, to = newNames)
-    inFile$datapath <- newNames
-    
-    return(inFile$datapath)
-  }
+  # #the datapath is different from the one needed to properly recognize photo
+  # #so this function renames the file
+  # renameUpload <- function(inFile){
+  #   if(is.null(inFile))
+  #     return(NULL)
+  # 
+  #   oldNames <- inFile$datapath
+  #   newNames <- file.path(dirname(inFile$datapath), inFile$name)
+  #   file.rename(from = oldNames, to = newNames)
+  #   inFile$datapath <- newNames
+  # 
+  #   return(inFile$datapath)
+  # }
   
   #if they enter a new file, their file will become the new imageFile
   observeEvent(input$file1, {
-    # reseting plots and text messages
-    output$plot3 <- renderPlot({})
-    output$plot4 <- renderPlot({})
-    if(!is.null(shinyImageFile$Threshold))
-      shinyImageFile$Threshold <- NULL
-    if(!is.null(shinyImageFile$Mean_Intensities))
-      shinyImageFile$Mean_Intensities <- NULL
-    if(!is.null(shinyImageFile$Median_Intensities))
-      shinyImageFile$Median_Intensities <- NULL
-    
     shinyImageFile$filename <- input$file1$name
-    img <- readImage(renameUpload(input$file1))
+    # img <- readImage(renameUpload(input$file1)) # Commented it, because I think its redundant.
+    img <- readImage(input$file1$datapath)
     shinyImageFile$shiny_img_origin <- img
+    shinyImageFile$shiny_img_cropped <- img
     output$plot1 <- renderPlot({EBImage::display(img, method = "raster")})
+    drawRotatePanel()
   })
+  
+  
+  # NOTE This function draws rotation panel.
+  drawRotatePanel <- function() {
+    output$rotatePanel <- renderUI({
+      tagList(
+        sliderInput("rotate", "Rotate image",
+                    min=-90, max=90, value=0),
+        actionButton("rotateCCW", "-90"),
+        actionButton("rotateCW", "+90"),
+        actionButton("fliphorizontal", "FH"),
+        actionButton("flipvertical", "FV"),
+      )
+    })
+  }
+  
+  
+  observe({reactiveRotation()})
+
+  reactiveRotation <- eventReactive(input$rotate, {
+    isolate({
+      if (!is.null(shinyImageFile$shiny_img_cropped)) {
+      shinyImageFile$shiny_img_final <- EBImage::rotate(shinyImageFile$shiny_img_cropped, input$rotate,
+                                                       output.dim = dim(shinyImageFile$shiny_img_origin)[1:2])
+      output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+      session$resetBrush("plot_brush")
+      }
+    })
+  })
+  
+  observe({reactiveRotationCCW()})
+  
+  reactiveRotationCCW <- eventReactive(input$rotateCCW, {
+    isolate({
+      if (!is.null(shinyImageFile$shiny_img_cropped)) {
+      shinyImageFile$shiny_img_cropped <- EBImage::rotate(shinyImageFile$shiny_img_cropped, -90)
+      shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+      output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+      session$resetBrush("plot_brush")
+      }
+    })
+  })
+  
+  observe({reactiveRotationCW()})
+  
+  reactiveRotationCW <- eventReactive(input$rotateCW, {
+    isolate({
+      if (!is.null(shinyImageFile$shiny_img_cropped)) {
+        shinyImageFile$shiny_img_cropped <- EBImage::rotate(shinyImageFile$shiny_img_cropped, 90)
+        shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+        output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+        session$resetBrush("plot_brush")
+      }
+    })
+  })
+  
+  observe({reactiveRotationFlip()})
+  
+  reactiveRotationFlip <- eventReactive(input$fliphor, {
+    isolate({
+      if (!is.null(shinyImageFile$shiny_img_cropped)) {
+        shinyImageFile$shiny_img_cropped <- EBImage::flip(shinyImageFile$shiny_img_cropped)
+        shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+        output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+        session$resetBrush("plot_brush")
+      }
+    })
+  })
+  
+  observe({reactiveRotationFlop()})
+  
+  reactiveRotationFlop <- eventReactive(input$flipver, {
+    isolate({
+      if (!is.null(shinyImageFile$shiny_img_cropped)) {
+        shinyImageFile$shiny_img_cropped <- EBImage::flop(shinyImageFile$shiny_img_cropped)
+        shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+        output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+        session$resetBrush("plot_brush")
+      }
+    })
+  })
+  
+  croppedImage <- function(image, xmin, ymin, xmax, ymax){
+    if(length(dim(image)) == 2)
+      image <- image[xmin:xmax, ymin:ymax, drop = FALSE]
+    else if(length(dim(image)) == 3)
+      image <- image[xmin:xmax, ymin:ymax, ,drop = FALSE]
+    return(image)
+  }
+  
+  observe({resetImage()})
+  
+  resetImage <- eventReactive(input$reset,{
+    isolate({
+      # For now, resetting only the grid is enough. If there is a need of resseting the image
+      # and rotation settings, uncommennt following three lines.
+      # shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+      # output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
+      session$resetBrush("plot_brush")
+      # updateSliderInput(session, "rotate", value=0)
+      shinyjs::disable("segmentation")
+    })
+  })
+  
   
   #prompts shiny to look at recursive crop
   observe({recursiveCrop()})
@@ -83,19 +174,22 @@ app_server <- function( input, output, session ) {
   #only executes when keep is clicked
   recursiveCrop <- eventReactive(input$plot_dblclick,{
     isolate({
-        p <- input$plot_brush
-        validate(need(p$xmax <= dim(shinyImageFile$shiny_img_crop)[1], 
-                      "Highlighted portion is out of bounds on the x-axis"))
-        validate(need(p$ymax <= dim(shinyImageFile$shiny_img_crop)[2], 
-                      "Highlighted portion is out of bounds on the y-axis"))
-        validate(need(p$xmin >= 0, 
-                      "Highlighted portion is out of bounds on the x-axis"))
-        validate(need(p$ymin >= 0, 
-                      "Highlighted portion is out of bounds on the y-axis"))
-        shinyImageFile$shiny_img_crop <- croppedImage(shinyImageFile$shiny_img_crop, p$xmin, p$ymin, p$xmax, p$ymax)
-        output$plot1 <- renderPlot({
-          EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")
-        })
+      p <- input$plot_brush
+      validate(need(p$xmax <= dim(shinyImageFile$shiny_img_cropped)[1], 
+                    "Highlighted portion is out of bounds on the x-axis"))
+      validate(need(p$ymax <= dim(shinyImageFile$shiny_img_cropped)[2], 
+                    "Highlighted portion is out of bounds on the y-axis"))
+      validate(need(p$xmin >= 0, 
+                    "Highlighted portion is out of bounds on the x-axis"))
+      validate(need(p$ymin >= 0, 
+                    "Highlighted portion is out of bounds on the y-axis"))
+      shinyImageFile$shiny_img_cropped <- croppedImage(shinyImageFile$shiny_img_cropped, p$xmin, p$ymin, p$xmax, p$ymax)
+      shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
+      output$plot1 <- renderPlot({
+        EBImage::display(shinyImageFile$shiny_img_final, method = "raster")
+      })
+      session$resetBrush("plot_brush")
+      shinyjs::enable("reset")
     })
     session$resetBrush("plot_brush")
     shinyjs::disable("segmentation")
@@ -107,8 +201,8 @@ app_server <- function( input, output, session ) {
     isolate({
       p <- input$plot_brush
       output$plot1 <- renderPlot({
-          EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")
-
+        EBImage::display(shinyImageFile$shiny_img_final, method = "raster")
+        
         colcuts <- seq(p$xmin, p$xmax, length.out = input$strips + 1)
         rowcuts <- seq(p$ymin, p$ymax, length.out = 2*input$bands) # bands + spaces between bands
         
@@ -119,33 +213,10 @@ app_server <- function( input, output, session ) {
           lines(x = c(p$xmin, p$xmax), y = rep(y, 2), col="red")
         }
       })
+      shinyjs::enable("reset")
+      shinyjs::enable("segmentation")
     })
-    # session$resetBrush("plot_brush")
-    shinyjs::enable("segmentation")
   })
-  
-  observe({resetImage()})
-  
-  resetImage <- eventReactive(input$keep,{
-    isolate({
-        shinyImageFile$shiny_img_crop <- shinyImageFile$shiny_img_origin
-        output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_crop, method = "raster")})
-      })
-    session$resetBrush("plot_brush")
-  })
-  
-  #creates a clone of the image in the main image viewer
-  #shows the user a preview of the cropped image
-  #since shinyimg saves every image that is edited, we use a clone
-  #so that we aren't saving any of the previews
-  #till the user clicks keep
-  croppedImage <- function(image, xmin, ymin, xmax, ymax){
-    if(length(dim(image)) == 2)
-      image <- image[xmin:xmax, ymin:ymax, drop = FALSE]
-    if(length(dim(image)) == 3)
-      image <- image[xmin:xmax, ymin:ymax, ,drop = FALSE]
-    return(image)
-  }
   
   observe({recursiveSegmentation()})
   
@@ -153,7 +224,7 @@ app_server <- function( input, output, session ) {
   recursiveSegmentation <- eventReactive(input$segmentation,{
     isolate({
       p <- input$plot_brush
-      MAX <- dim(shinyImageFile$shiny_img_crop)[1:2]
+      MAX <- dim(shinyImageFile$shiny_img_cropped)[1:2]
       colcuts <- seq(p$xmin, p$xmax, length.out = input$strips + 1)
       rowcuts <- seq(p$ymin, p$ymax, length.out = 2*input$bands)
       
@@ -162,10 +233,10 @@ app_server <- function( input, output, session ) {
       for(i in 1:input$strips){
         tmp.list <- vector("list", length = 2*input$bands-1)
         for(j in 1:(2*input$bands-1)){
-          img <- shinyImageFile$shiny_img_crop
+          img <- shinyImageFile$shiny_img_final
           if(length(dim(img)) == 2)
             img <- img[colcuts[i]:colcuts[i+1], rowcuts[j]:rowcuts[j+1]]
-          if(length(dim(img)) == 3)
+          else if(length(dim(img)) == 3)
             img <- img[colcuts[i]:colcuts[i+1], rowcuts[j]:rowcuts[j+1], , drop = FALSE]
           tmp.list[[j]] <- img
         }
@@ -177,6 +248,10 @@ app_server <- function( input, output, session ) {
     })
   })
   
+  ################# END OF THE FIRST TAB
+  
+  ############### SECOND TAB
+  
   observe({
     input$thresh
     updateNumericInput(session, "selectStrip", max=input$strips)
@@ -186,6 +261,7 @@ app_server <- function( input, output, session ) {
   
   observe({recursiveThreshold()})
   
+  # TODO Implement invert color button
   recursiveThreshold <- eventReactive(input$threshold,{
     isolate({
       seg.list <- shinyImageFile$segmentation_list
@@ -195,16 +271,7 @@ app_server <- function( input, output, session ) {
         for(j in 1:input$bands){
           img <- seg.list[[i]][[j]]
           if(colorMode(img) > 0){
-            if(input$channel == 1)
-              img <- 1-channel(img, "luminance")
-            if(input$channel == 2)
-              img <- 1-channel(img, "gray")
-            if(input$channel == 3)
-              img <- 1-channel(img, "red")
-            if(input$channel == 4)
-              img <- 1-channel(img, "green")
-            if(input$channel == 5)
-              img <- 1-channel(img, "blue")
+            img <- 1-channel(img, input$channel)
           }
           Background[[j]] <- as.numeric(EBImage::imageData(img))
         }
@@ -219,16 +286,7 @@ app_server <- function( input, output, session ) {
             count <- count + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             signal <- EBImage::imageData(img) > Background.Threshold
             EBImage::imageData(img) <- signal
@@ -247,16 +305,7 @@ app_server <- function( input, output, session ) {
             count <- count + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             signal <- EBImage::imageData(img) > Background.Threshold
             EBImage::imageData(img) <- (EBImage::imageData(img) - Background.Threshold)*signal
@@ -267,7 +316,7 @@ app_server <- function( input, output, session ) {
           }
         })
       }
-      if(input$thresh == 1){
+      else if(input$thresh == 1){
         Background.Threshold <- numeric(input$bands)
         output$plot3 <- renderPlot({
           par(mfcol = c(1, input$bands))
@@ -279,16 +328,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             Background.Threshold[count1] <- otsu(img)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
@@ -310,16 +350,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             thr <- otsu(img)
             signal <- EBImage::imageData(img) > thr
@@ -331,7 +362,7 @@ app_server <- function( input, output, session ) {
           }
         })
       }
-      if(input$thresh == 3){
+      else if(input$thresh == 3){
         Background.Threshold <- numeric(input$bands)
         output$plot3 <- renderPlot({
           par(mfcol = c(1, input$bands))
@@ -343,16 +374,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             Background.Threshold[count1] <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
@@ -374,16 +396,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             thr <- MultiFlowExt::triangle(img, input$tri_offset)
             signal <- EBImage::imageData(img) > thr
@@ -395,7 +408,7 @@ app_server <- function( input, output, session ) {
           }
         })
       }
-      if(input$thresh == 4){
+      else if(input$thresh == 4){
         Background.Threshold <- numeric(input$bands)
         output$plot3 <- renderPlot({
           par(mfcol = c(1, input$bands))
@@ -407,16 +420,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             Background.Threshold[count1] <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
@@ -438,16 +442,7 @@ app_server <- function( input, output, session ) {
             count2 <- count2 + 1
             img <- seg.list[[i]][[j]]
             if(colorMode(img) > 0){
-              if(input$channel == 1)
-                img <- 1-channel(img, "luminance")
-              if(input$channel == 2)
-                img <- 1-channel(img, "gray")
-              if(input$channel == 3)
-                img <- 1-channel(img, "red")
-              if(input$channel == 4)
-                img <- 1-channel(img, "green")
-              if(input$channel == 5)
-                img <- 1-channel(img, "blue")
+              img <- 1-channel(img, input$channel)
             }
             thr <- MultiFlowExt::threshold_li(img, tolerance=input$tri_offset)
             signal <- EBImage::imageData(img) > thr
@@ -470,6 +465,7 @@ app_server <- function( input, output, session ) {
       colnames(AM) <- paste0("Mean", 1:input$bands)
       Med <- shinyImageFile$Median_Intensities
       colnames(Med) <- paste0("Median", 1:input$bands)
+      # TODO Here else if will improve the app.
       if(input$thresh == 1){
         BG.method <- matrix(c("Otsu", NA), nrow = 1,
                             ncol = 2, byrow = TRUE)
@@ -493,11 +489,7 @@ app_server <- function( input, output, session ) {
       seg.list <- shinyImageFile$segmentation_list
       img <- seg.list[[1]][[1]]
       if(colorMode(img) > 0){
-        if(input$channel == 1) MODE <- "luminance"
-        if(input$channel == 2) MODE <- "gray"
-        if(input$channel == 3) MODE <- "red"
-        if(input$channel == 4) MODE <- "green"
-        if(input$channel == 5) MODE <- "blue"
+        MODE <- input$channel
         DF <- data.frame("File" = shinyImageFile$filename,
                          "Mode" = MODE,
                          "Strip" = input$selectStrip,

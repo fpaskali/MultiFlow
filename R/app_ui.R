@@ -32,13 +32,13 @@ app_ui <- function(request) {
                   tabPanel("Cropping and Segmentation", value = "tab1",
                            sidebarLayout(
                              sidebarPanel(
-                               radioButtons("radio",
+                               radioButtons("upload",
                                             label = ("1) Upload Image or Choose Sample"),
                                             choices = list("Upload Image" = 1,
                                                            "Sample Image" = 2),
                                             selected = 1),
                                conditionalPanel(
-                                 condition = "input.radio == 1",
+                                 condition = "input.upload == 1",
                                  fileInput(inputId = 'file1',
                                            label = 'Upload Image',
                                            placeholder = 'JPEG, PNG, and TIFF are supported',
@@ -49,7 +49,9 @@ app_ui <- function(request) {
                                              ".jpg",
                                              ".png",
                                              ".tiff"))
-                               ),hr(style="border-color: black"),
+                               ),
+                               uiOutput("rotatePanel"),
+                               hr(style="border-color: black"),
                                h5("2) Set number of strips and number of lines per strip",
                                   style="font-weight:bold"),
                                sliderInput("strips", "Number of strips:",
@@ -58,29 +60,18 @@ app_ui <- function(request) {
                                            min = 2, max = 6, value = 2),
                              ),
                              mainPanel(
-                               HTML(
-                                 paste(
                                    h3('Cropping and Segmentation', align = "center"),
                                    plotOutput("plot1",
                                               click = "plot_click",
                                               dblclick = "plot_dblclick",
                                               hover = "plot_hover",
-                                              brush = brushOpts(
-                                                id="plot_brush",
-                                                delay = 1000)),
-                                   '<br/>',
+                                              brush = "plot_brush"),
                                    column(6,
-                                     actionButton("keep", label = "Reset")
+                                     actionButton("reset", label = "Reset")
                                    ),
-                                   tags$style(type='text/css', "#keep { display: block; width:30%; margin-left: auto; margin-right:auto;}"),
                                    column(6, shinyjs::disabled(
                                      actionButton("segmentation", label = "Apply Segmentation"))
-                                   ),
-                                   tags$style(type='text/css', "#segmentation { display: block; width:60%; margin-left: auto; margin-right:auto;}"),
-                                   '<br/>','<br/>'
-                                 )
-                               ),
-                               width = 8
+                                   )
                              )
                            )
                   ), # END OF TAB PANEL
@@ -122,16 +113,6 @@ app_ui <- function(request) {
                                                            "Triangle" = 3,
                                                            "Li" = 4),
                                             selected = 1),
-                               conditionalPanel(
-                                 condition = "input.thresh == 4",
-                                 numericInput(inputId = "li_tolerance",
-                                              label = "Tolerance:",
-                                              value = 0.1,
-                                              min = 0,
-                                              max = 1,
-                                              step = 0.01,
-                                              width = NULL)
-                               ),
                                conditionalPanel(
                                  condition = "input.thresh == 3",
                                  numericInput(inputId = "tri_offset",
