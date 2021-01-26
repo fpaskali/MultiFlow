@@ -66,11 +66,14 @@ app_ui <- function(request) {
                                               dblclick = "plot_dblclick",
                                               hover = "plot_hover",
                                               brush = "plot_brush"),
+                                   br(), br(),
                                    column(6,
-                                     actionButton("reset", label = "Reset")
+                                     actionButton("reset", label = "Reset"),
+                                     tags$style(type='text/css', "#reset { display: block; width:70%; margin-left: auto; margin-right:auto;}"),
                                    ),
                                    column(6, shinyjs::disabled(
-                                     actionButton("segmentation", label = "Apply Segmentation"))
+                                     actionButton("segmentation", label = "Apply Segmentation")),
+                                     tags$style(type='text/css', "#segmentation { display: block; width:70%; margin-left: auto; margin-right:auto;}"),
                                    )
                              )
                            )

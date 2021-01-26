@@ -72,7 +72,7 @@ app_server <- function( input, output, session ) {
     output$rotatePanel <- renderUI({
       tagList(
         sliderInput("rotate", "Rotate image",
-                    min=-90, max=90, value=0),
+                    min=-45, max=45, value=0),
         actionButton("rotateCCW", "-90"),
         actionButton("rotateCW", "+90"),
         actionButton("fliphor", "FH"),
@@ -88,7 +88,7 @@ app_server <- function( input, output, session ) {
     isolate({
       if (!is.null(shinyImageFile$shiny_img_cropped)) {
       shinyImageFile$shiny_img_final <- EBImage::rotate(shinyImageFile$shiny_img_cropped, input$rotate,
-                                                       output.dim = dim(shinyImageFile$shiny_img_cropped)[1:2])
+                                                       bg.col="white")
       output$plot1 <- renderPlot({EBImage::display(shinyImageFile$shiny_img_final, method = "raster")})
       session$resetBrush("plot_brush")
       }
@@ -186,11 +186,12 @@ app_server <- function( input, output, session ) {
                     "Highlighted portion is out of bounds on the x-axis"))
       validate(need(p$ymin >= 0, 
                     "Highlighted portion is out of bounds on the y-axis"))
-      shinyImageFile$shiny_img_cropped <- croppedImage(shinyImageFile$shiny_img_cropped, p$xmin, p$ymin, p$xmax, p$ymax)
+      shinyImageFile$shiny_img_cropped <- croppedImage(shinyImageFile$shiny_img_final, p$xmin, p$ymin, p$xmax, p$ymax)
       shinyImageFile$shiny_img_final <- shinyImageFile$shiny_img_cropped
       output$plot1 <- renderPlot({
         EBImage::display(shinyImageFile$shiny_img_final, method = "raster")
       })
+      updateSliderInput(session, "rotate", value=0)
       session$resetBrush("plot_brush")
       shinyjs::enable("reset")
     })
