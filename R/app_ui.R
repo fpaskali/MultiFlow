@@ -118,16 +118,6 @@ app_ui <- function(request) {
                                                            "Li" = 4),
                                             selected = 1),
                                conditionalPanel(
-                                 condition = "input.thresh == 4",
-                                 numericInput(inputId = "li_tolerance",
-                                              label = "Tolerance:",
-                                              value = 0,
-                                              min = 0,
-                                              max = 1,
-                                              step = 0.01,
-                                              width = NULL)
-                               ),
-                               conditionalPanel(
                                  condition = "input.thresh == 3",
                                  numericInput(inputId = "tri_offset",
                                               label = "Offset:",

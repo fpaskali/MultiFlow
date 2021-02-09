@@ -450,11 +450,8 @@ app_server <- function( input, output, session ) {
             if(input$invert) {
               img <- 1 - img
             }
-            if(input$li_tolerance != 0) {
-              Background.Threshold[count1] <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
-            } else {
-              Background.Threshold[count1] <- MultiFlowExt::threshold_li(img)
-            }
+
+            Background.Threshold[count1] <- MultiFlowExt::threshold_li(img)
             signal <- EBImage::imageData(img) > Background.Threshold[count1]
             EBImage::imageData(img) <- signal
             plot(img)
@@ -479,11 +476,7 @@ app_server <- function( input, output, session ) {
             if(input$invert) {
               img <- 1 - img
             }
-            if(input$li_tolerance != 0) {
-              thr <- MultiFlowExt::threshold_li(img, tolerance=input$li_tolerance)
-            } else {
-              thr <- MultiFlowExt::threshold_li(img)
-            }
+            thr <- MultiFlowExt::threshold_li(img)
             signal <- EBImage::imageData(img) > thr
             EBImage::imageData(img) <- (EBImage::imageData(img) - thr)*signal
             shinyImageFile$Mean_Intensities[1,count1] <- mean(EBImage::imageData(img)[signal])
